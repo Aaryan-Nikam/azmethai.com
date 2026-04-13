@@ -1,0 +1,514 @@
+
+> frontend@0.1.0 build
+> next build
+
+⚠ Warning: Next.js inferred your workspace root, but it may not be correct.
+ We detected multiple lockfiles and selected the directory of /Users/aaryannikam/pnpm-lock.yaml as the root directory.
+ To silence this warning, set `turbopack.root` in your Next.js config, or consider removing one of the lockfiles if it's not needed.
+   See https://nextjs.org/docs/app/api-reference/config/next-config-js/turbopack#root-directory for more information.
+ Detected additional lockfiles: 
+   * /Users/aaryannikam/Azmeth AI/Azmeth/frontend/package-lock.json
+   * /Users/aaryannikam/Azmeth AI/Azmeth/package-lock.json
+
+▲ Next.js 16.2.2 (Turbopack)
+
+  Creating an optimized production build ...
+
+> Build error occurred
+Error: Turbopack build failed with 20 errors:
+./Azmeth AI/Azmeth/frontend/node_modules/@nodelib/fs.scandir/out/adapters/fs.js:4:12
+Module not found: Can't resolve 'fs'
+  [90m2 |[0m [33mObject[0m.defineProperty(exports, [32m"__esModule"[0m, { value: [36mtrue[0m });
+  [90m3 |[0m exports.createFileSystemAdapter = exports.[33mFILE_SYSTEM_ADAPTER[0m = [36mvoid[0m [35m0[0m;
+[31m[1m>[0m [90m4 |[0m [36mconst[0m fs = require([32m"fs"[0m);
+  [90m  |[0m            [31m[1m^^^^^^^^^^^^^[0m
+  [90m5 |[0m exports.[33mFILE_SYSTEM_ADAPTER[0m = {
+  [90m6 |[0m     lstat: fs.lstat,
+  [90m7 |[0m     stat: fs.stat,
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/@nodelib/fs.scandir/out/adapters/fs.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/@nodelib/fs.scandir/out/settings.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/@nodelib/fs.scandir/out/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/@nodelib/fs.walk/out/settings.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/@nodelib/fs.walk/out/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/node_modules/fast-glob/out/readers/sync.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/node_modules/fast-glob/out/providers/sync.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/node_modules/fast-glob/out/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/content.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/@nodelib/fs.stat/out/adapters/fs.js:4:12
+Module not found: Can't resolve 'fs'
+  [90m2 |[0m [33mObject[0m.defineProperty(exports, [32m"__esModule"[0m, { value: [36mtrue[0m });
+  [90m3 |[0m exports.createFileSystemAdapter = exports.[33mFILE_SYSTEM_ADAPTER[0m = [36mvoid[0m [35m0[0m;
+[31m[1m>[0m [90m4 |[0m [36mconst[0m fs = require([32m"fs"[0m);
+  [90m  |[0m            [31m[1m^^^^^^^^^^^^^[0m
+  [90m5 |[0m exports.[33mFILE_SYSTEM_ADAPTER[0m = {
+  [90m6 |[0m     lstat: fs.lstat,
+  [90m7 |[0m     stat: fs.stat,
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/@nodelib/fs.stat/out/adapters/fs.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/@nodelib/fs.stat/out/settings.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/@nodelib/fs.stat/out/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/node_modules/fast-glob/out/readers/stream.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/node_modules/fast-glob/out/providers/stream.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/node_modules/fast-glob/out/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/content.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/babel.js:1:110659
+Module not found: Can't resolve 'fs'
+[31m[1m>[0m [90m1 |[0m ...ports=require([32m"assert"[0m)},fs:module=>{[32m"use strict"[0m;module.exports=require([32m"fs"[0m)},module:module=>{[32m"use strict"[0m;module.exports=require([32m"module"[0m)}...
+  [90m  |[0m                                                                     [31m[1m^^^^^^^^^^^^^[0m
+  [90m2 |[0m ...
+  [90m3 |[0m ...
+  [90m4 |[0m ...
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/babel.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/load-config.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/jiti.js:1:61059
+Module not found: Can't resolve 'fs'
+[31m[1m>[0m [90m1 |[0m ...ports=require([32m"crypto"[0m)},fs:module=>{[32m"use strict"[0m;module.exports=require([32m"fs"[0m)},module:module=>{[32m"use strict"[0m;module.exports=require([32m"module"[0m)}...
+  [90m  |[0m                                                                     [31m[1m^^^^^^^^^^^^^[0m
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/jiti.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/jiti/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/load-config.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/jiti.js:1:209925
+Module not found: Can't resolve 'fs'
+[31m[1m>[0m [90m1 |[0m ...mespaceObject=require([32m"module"[0m),external_node_fs_namespaceObject=require([32m"fs"[0m);[33mMath[0m.floor,[33mString[0m.fromCharCode;[36mconst[0m [33mTRAILING_SLASH_RE[0m=[35m/\/$|\/\...[0m
+  [90m  |[0m                                                                     [31m[1m^^^^^^^^^^^^^[0m
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/jiti.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/jiti/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/load-config.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/corePlugins.js:19:52
+Module not found: Can't resolve 'fs'
+  [90m17 |[0m     }
+  [90m18 |[0m });
+[31m[1m>[0m [90m19 |[0m [36mconst[0m _fs = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"fs"[0m));
+  [90m   |[0m                                                    [31m[1m^^^^^^^^^^^^^[0m
+  [90m20 |[0m [36mconst[0m _path = [90m/*#__PURE__*/[0m _interop_require_wildcard(require([32m"path"[0m));
+  [90m21 |[0m [36mconst[0m _postcss = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"postcss"[0m));
+  [90m22 |[0m [36mconst[0m _createUtilityPlugin = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"./util/createUtilityPlugin"[0m));
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/corePlugins.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupContextUtils.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/processTailwindFeatures.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/content.js:23:52
+Module not found: Can't resolve 'fs'
+  [90m21 |[0m     }
+  [90m22 |[0m });
+[31m[1m>[0m [90m23 |[0m [36mconst[0m _fs = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"fs"[0m));
+  [90m   |[0m                                                    [31m[1m^^^^^^^^^^^^^[0m
+  [90m24 |[0m [36mconst[0m _path = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"path"[0m));
+  [90m25 |[0m [36mconst[0m _isglob = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"is-glob"[0m));
+  [90m26 |[0m [36mconst[0m _fastglob = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"fast-glob"[0m));
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/content.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/expandTailwindAtRules.js:11:52
+Module not found: Can't resolve 'fs'
+  [90m 9 |[0m     }
+  [90m10 |[0m });
+[31m[1m>[0m [90m11 |[0m [36mconst[0m _fs = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"fs"[0m));
+  [90m   |[0m                                                    [31m[1m^^^^^^^^^^^^^[0m
+  [90m12 |[0m [36mconst[0m _quicklru = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"@alloc/quick-lru"[0m));
+  [90m13 |[0m [36mconst[0m _sharedState = [90m/*#__PURE__*/[0m _interop_require_wildcard(require([32m"./sharedState"[0m));
+  [90m14 |[0m [36mconst[0m _generateRules = require([32m"./generateRules"[0m);
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/expandTailwindAtRules.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/processTailwindFeatures.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/findAtConfigPath.js:11:52
+Module not found: Can't resolve 'fs'
+  [90m 9 |[0m     }
+  [90m10 |[0m });
+[31m[1m>[0m [90m11 |[0m [36mconst[0m _fs = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"fs"[0m));
+  [90m   |[0m                                                    [31m[1m^^^^^^^^^^^^^[0m
+  [90m12 |[0m [36mconst[0m _path = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"path"[0m));
+  [90m13 |[0m [36mfunction[0m _interop_require_default(obj) {
+  [90m14 |[0m     [36mreturn[0m obj && obj.__esModule ? obj : {
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/findAtConfigPath.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/getModuleDependencies.js:11:52
+Module not found: Can't resolve 'fs'
+  [90m 9 |[0m     }
+  [90m10 |[0m });
+[31m[1m>[0m [90m11 |[0m [36mconst[0m _fs = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"fs"[0m));
+  [90m   |[0m                                                    [31m[1m^^^^^^^^^^^^^[0m
+  [90m12 |[0m [36mconst[0m _path = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"path"[0m));
+  [90m13 |[0m [36mfunction[0m _interop_require_default(obj) {
+  [90m14 |[0m     [36mreturn[0m obj && obj.__esModule ? obj : {
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/getModuleDependencies.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupContextUtils.js:31:52
+Module not found: Can't resolve 'fs'
+  [90m29 |[0m     }
+  [90m30 |[0m });
+[31m[1m>[0m [90m31 |[0m [36mconst[0m _fs = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"fs"[0m));
+  [90m   |[0m                                                    [31m[1m^^^^^^^^^^^^^[0m
+  [90m32 |[0m [36mconst[0m _url = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"url"[0m));
+  [90m33 |[0m [36mconst[0m _postcss = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"postcss"[0m));
+  [90m34 |[0m [36mconst[0m _dlv = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"dlv"[0m));
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupContextUtils.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/processTailwindFeatures.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js:16:52
+Module not found: Can't resolve 'fs'
+  [90m14 |[0m     }
+  [90m15 |[0m });
+[31m[1m>[0m [90m16 |[0m [36mconst[0m _fs = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"fs"[0m));
+  [90m   |[0m                                                    [31m[1m^^^^^^^^^^^^^[0m
+  [90m17 |[0m [36mconst[0m _quicklru = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"@alloc/quick-lru"[0m));
+  [90m18 |[0m [36mconst[0m _hashConfig = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"../util/hashConfig"[0m));
+  [90m19 |[0m [36mconst[0m _resolveconfig = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"../public/resolve-config"[0m));
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/util/resolveConfigPath.js:19:52
+Module not found: Can't resolve 'fs'
+  [90m17 |[0m     }
+  [90m18 |[0m });
+[31m[1m>[0m [90m19 |[0m [36mconst[0m _fs = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"fs"[0m));
+  [90m   |[0m                                                    [31m[1m^^^^^^^^^^^^^[0m
+  [90m20 |[0m [36mconst[0m _path = [90m/*#__PURE__*/[0m _interop_require_default(require([32m"path"[0m));
+  [90m21 |[0m [36mfunction[0m _interop_require_default(obj) {
+  [90m22 |[0m     [36mreturn[0m obj && obj.__esModule ? obj : {
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/util/resolveConfigPath.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/node_modules/fast-glob/out/settings.js:4:12
+Module not found: Can't resolve 'fs'
+  [90m2 |[0m [33mObject[0m.defineProperty(exports, [32m"__esModule"[0m, { value: [36mtrue[0m });
+  [90m3 |[0m exports.[33mDEFAULT_FILE_SYSTEM_ADAPTER[0m = [36mvoid[0m [35m0[0m;
+[31m[1m>[0m [90m4 |[0m [36mconst[0m fs = require([32m"fs"[0m);
+  [90m  |[0m            [31m[1m^^^^^^^^^^^^^[0m
+  [90m5 |[0m [36mconst[0m os = require([32m"os"[0m);
+  [90m6 |[0m /**
+  [90m7 |[0m  * [33mThe[0m [32m`os.cpus`[0m method can [36mreturn[0m zero. [33mWe[0m expect the number [36mof[0m cores to be greater than zero.
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/node_modules/fast-glob/out/settings.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/node_modules/fast-glob/out/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/content.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/babel.js:1:110718
+Module not found: Can't resolve 'module'
+[31m[1m>[0m [90m1 |[0m ...rts=require([32m"fs"[0m)},module:module=>{[32m"use strict"[0m;module.exports=require([32m"module"[0m)},os:module=>{[32m"use strict"[0m;module.exports=require([32m"os"[0m)},path:...
+  [90m  |[0m                                                                   [31m[1m^^^^^^^^^^^^^^^^^[0m
+  [90m2 |[0m ...
+  [90m3 |[0m ...
+  [90m4 |[0m ...
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/babel.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/load-config.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/jiti.js:1:61118
+Module not found: Can't resolve 'module'
+[31m[1m>[0m [90m1 |[0m ...rts=require([32m"fs"[0m)},module:module=>{[32m"use strict"[0m;module.exports=require([32m"module"[0m)},path:module=>{[32m"use strict"[0m;module.exports=require([32m"path"[0m)}},...
+  [90m  |[0m                                                                   [31m[1m^^^^^^^^^^^^^^^^^[0m
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/jiti.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/jiti/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/load-config.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/jiti.js:1:209874
+Module not found: Can't resolve 'module'
+[31m[1m>[0m [90m1 |[0m ...nonASCIIwhitespace};[36mconst[0m external_node_module_namespaceObject=require([32m"module"[0m),external_node_fs_namespaceObject=require([32m"fs"[0m);[33mMath[0m.floor,[33mStr...[0m
+  [90m  |[0m                                                                   [31m[1m^^^^^^^^^^^^^^^^^[0m
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/jiti.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/jiti/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/load-config.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/jiti.js:1:62357
+Module not found: Can't resolve 'perf_hooks'
+[31m[1m>[0m [90m1 |[0m ...equire__([32m"module"[0m);[36mconst[0m external_perf_hooks_namespaceObject=require([32m"perf_hooks"[0m),external_os_namespaceObject=require([32m"os"[0m),external_vm_names...
+  [90m  |[0m                                                                 [31m[1m^^^^^^^^^^^^^^^^^^^^^[0m
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/jiti.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/jiti/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/load-config.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/babel.js:1:111129
+Module not found: Can't resolve 'v8'
+[31m[1m>[0m [90m1 |[0m ...exports=require([32m"util"[0m)},v8:module=>{[32m"use strict"[0m;module.exports=require([32m"v8"[0m)},[32m"./node_modules/.pnpm/@babel+core@7.26.0/node_modules/@babel/c...[0m
+  [90m  |[0m                                                                     [31m[1m^^^^^^^^^^^^^[0m
+  [90m2 |[0m ...
+  [90m3 |[0m ...
+  [90m4 |[0m ...
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/babel.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/load-config.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/jiti.js:1:211244
+Module not found: Can't resolve 'v8'
+[31m[1m>[0m [90m1 |[0m ...namespaceObject=require([32m"path"[0m),external_node_v8_namespaceObject=require([32m"v8"[0m),external_node_util_namespaceObject=require([32m"util"[0m),[33mBUILTIN_MODU...[0m
+  [90m  |[0m                                                                     [31m[1m^^^^^^^^^^^^^[0m
+
+
+
+Import trace:
+  Client Component Browser:
+    ./Azmeth AI/Azmeth/frontend/node_modules/jiti/dist/jiti.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/jiti/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/load-config.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/lib/setupTrackingContext.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/plugin.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/node_modules/tailwindcss/lib/index.js [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/globals.css [Client Component Browser]
+    ./Azmeth AI/Azmeth/frontend/src/app/layout.tsx [Server Component]
+
+https://nextjs.org/docs/messages/module-not-found
+
+
+    at ./Azmeth AI/Azmeth/frontend/node_modules/ (nodelib/fs.scandir/out/adapters/fs.js:4:12)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at ./Azmeth AI/Azmeth/frontend/node_modules/ (nodelib/fs.stat/out/adapters/fs.js:4:12)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
+    at <unknown> (https://nextjs.org/docs/messages/module-not-found)
