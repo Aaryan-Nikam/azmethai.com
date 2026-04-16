@@ -1,6 +1,6 @@
-import { AzmethNodeProperty } from "../types";
+import { N8nNodeProperty } from "./HttpRequest";
 
-export const SlackProperties: AzmethNodeProperty[] = [
+export const SlackProperties: N8nNodeProperty[] = [
   {
     displayName: 'Authentication',
     name: 'authentication',
@@ -38,7 +38,7 @@ export const SlackProperties: AzmethNodeProperty[] = [
   }
 ];
 
-export const GmailProperties: AzmethNodeProperty[] = [
+export const GmailProperties: N8nNodeProperty[] = [
   {
     displayName: 'Authentication',
     name: 'authentication',
@@ -82,7 +82,7 @@ export const GmailProperties: AzmethNodeProperty[] = [
   }
 ];
 
-export const PostgresProperties: AzmethNodeProperty[] = [
+export const PostgresProperties: N8nNodeProperty[] = [
   {
     displayName: 'Operation',
     name: 'operation',
@@ -121,7 +121,7 @@ export const PostgresProperties: AzmethNodeProperty[] = [
   }
 ];
 
-export const LLMProperties: AzmethNodeProperty[] = [
+export const LLMProperties: N8nNodeProperty[] = [
   {
     displayName: 'Provision Type',
     name: 'provisionType',
@@ -142,11 +142,4 @@ export const LLMProperties: AzmethNodeProperty[] = [
     description: 'The instruction for the AI model.',
     required: true,
   }
-];
-
-export const IntegrationsNodes = [
-  { name: 'Slack', properties: SlackProperties },
-  { name: 'Gmail', properties: GmailProperties },
-  { name: 'Postgres', properties: PostgresProperties },
-  { name: 'LLM', properties: LLMProperties },
 ];

@@ -1,6 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 
 /**
+ * Client-side Supabase client singleton — used in React components ("use client")
+ * Safely wraps browser-accessible public env variables or defaults.
+ */
+export const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://uruvtlrchjmnutgkanpl.supabase.co',
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVydXZ0bHJjaGptbnV0Z2thbnBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMTgxNDQsImV4cCI6MjA4OTY5NDE0NH0.6BjES6k9f9CkTKef6o6532lhuQkEolBVpU2IBWyew2A'
+);
+
+/**
  * Server-side Supabase client — used in /api routes only.
  * Uses server-only env vars (no NEXT_PUBLIC_ prefix).
  * Never called from browser code.

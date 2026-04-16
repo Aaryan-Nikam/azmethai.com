@@ -298,13 +298,13 @@ export function renderField(property: AzmethNodeProperty, value: any, onChange: 
 
 interface NodePropertiesPanelV2Props {
   nodeId: string;
-  schema: AzmethNodeProperty[];
+  schema: { properties: AzmethNodeProperty[] };
   data: Record<string, any>;
   onChange: (key: string, value: any) => void;
 }
 
 export function NodePropertiesPanelV2({ nodeId, schema, data, onChange }: NodePropertiesPanelV2Props) {
-  if (!schema?.length) {
+  if (!schema?.properties?.length) {
     return (
       <p className="text-[12px] text-[var(--text-muted)] italic">No configurable parameters for this node.</p>
     );
@@ -312,7 +312,7 @@ export function NodePropertiesPanelV2({ nodeId, schema, data, onChange }: NodePr
 
   return (
     <div className="space-y-5">
-      {schema.map((prop) => {
+      {schema.properties.map((prop) => {
         if (!shouldDisplayProperty(prop.displayOptions, data)) return null;
         if (prop.type === "hidden") return null;
 
@@ -320,7 +320,7 @@ export function NodePropertiesPanelV2({ nodeId, schema, data, onChange }: NodePr
           <div key={prop.name}>
             <div className="flex items-baseline justify-between mb-1.5">
               <label className="text-[12px] font-bold text-[var(--text-main)] flex items-center gap-1.5">
-                {prop.displayName || prop.name}
+                {prop.displayName}
                 {prop.required && <span className="text-rose-500 text-[10px]">*</span>}
               </label>
             </div>

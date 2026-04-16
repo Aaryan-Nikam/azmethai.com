@@ -16,7 +16,7 @@ export const AzmethLogo: React.FC<AzmethLogoProps> = ({ size = 'md', variant = '
       {/* Plain img — avoids next/image fill + tiny-parent issues */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/azmeth-logo.png"
+        src="/Azmeth%20AI%20Logo.png"
         alt="Azmeth AI"
         width={px}
         height={px}

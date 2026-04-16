@@ -1,0 +1,232 @@
+/**
+ * GENERATED FILE - DO NOT EDIT
+ * Source: /Users/aaryannikam/nocobase/clone/node_modules/n8n-nodes-base/dist/nodes/Html/Html.node.js
+ */
+import { AzmethNodeProperty } from '../../types';
+
+export const HtmlProperties: AzmethNodeProperty[] = [
+  {
+    "displayName": "Operation",
+    "name": "operation",
+    "type": "options",
+    "noDataExpression": true,
+    "options": [
+      {
+        "name": "Generate HTML Template",
+        "value": "generateHtmlTemplate",
+        "action": "Generate HTML template"
+      },
+      {
+        "name": "Extract HTML Content",
+        "value": "extractHtmlContent",
+        "action": "Extract HTML Content"
+      }
+    ],
+    "default": "generateHtmlTemplate"
+  },
+  {
+    "displayName": "HTML Template",
+    "name": "html",
+    "typeOptions": {
+      "editor": "htmlEditor"
+    },
+    "type": "string",
+    "default": "<!DOCTYPE html>\n\n<html>\n<head>\n  <meta charset=\"UTF-8\" />\n  <title>My HTML document</title>\n</head>\n<body>\n  <div class=\"container\">\n    <h1>This is an H1 heading</h1>\n    <h2>This is an H2 heading</h2>\n    <p>This is a paragraph</p>\n  </div>\n</body>\n</html>\n\n<style>\n.container {\n  background-color: #ffffff;\n  text-align: center;\n  padding: 16px;\n  border-radius: 8px;\n}\n\nh1 {\n  color: #ff6d5a;\n  font-size: 24px;\n  font-weight: bold;\n  padding: 8px;\n}\n\nh2 {\n  color: #909399;\n  font-size: 18px;\n  font-weight: bold;\n  padding: 8px;\n}\n</style>\n\n<script>\nconsole.log(\"Hello World!\");\n</script>",
+    "noDataExpression": true,
+    "description": "HTML template to render",
+    "displayOptions": {
+      "show": {
+        "operation": [
+          "generateHtmlTemplate"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "<b>Tips</b>: Type ctrl+space for completions. Use <code>{{ }}</code> for expressions and <code>&lt;style&gt;</code> tags for CSS. JS in <code>&lt;script&gt;</code> tags is included but not executed in n8n.",
+    "name": "notice",
+    "type": "notice",
+    "default": "",
+    "displayOptions": {
+      "show": {
+        "operation": [
+          "generateHtmlTemplate"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Source Data",
+    "name": "sourceData",
+    "type": "options",
+    "options": [
+      {
+        "name": "Binary",
+        "value": "binary"
+      },
+      {
+        "name": "JSON",
+        "value": "json"
+      }
+    ],
+    "default": "json",
+    "description": "If HTML should be read from binary or JSON data",
+    "displayOptions": {
+      "show": {
+        "operation": [
+          "extractHtmlContent"
+        ]
+      }
+    }
+  },
+  {
+    "displayName": "Binary Property",
+    "name": "dataPropertyName",
+    "type": "string",
+    "displayOptions": {
+      "show": {
+        "operation": [
+          "extractHtmlContent"
+        ],
+        "sourceData": [
+          "binary"
+        ]
+      }
+    },
+    "default": "data",
+    "required": true,
+    "description": "Name of the binary property in which the HTML to extract the data from can be found"
+  },
+  {
+    "displayName": "JSON Property",
+    "name": "dataPropertyName",
+    "type": "string",
+    "displayOptions": {
+      "show": {
+        "operation": [
+          "extractHtmlContent"
+        ],
+        "sourceData": [
+          "json"
+        ]
+      }
+    },
+    "default": "data",
+    "required": true,
+    "description": "Name of the JSON property in which the HTML to extract the data from can be found. The property can either contain a string or an array of strings."
+  },
+  {
+    "displayName": "Extraction Values",
+    "name": "extractionValues",
+    "placeholder": "Add Value",
+    "type": "fixedCollection",
+    "typeOptions": {
+      "multipleValues": true
+    },
+    "displayOptions": {
+      "show": {
+        "operation": [
+          "extractHtmlContent"
+        ]
+      }
+    },
+    "default": {},
+    "options": [
+      {
+        "name": "values",
+        "displayName": "Values",
+        "values": [
+          {
+            "displayName": "Key",
+            "name": "key",
+            "type": "string",
+            "default": "",
+            "description": "The key under which the extracted value should be saved"
+          },
+          {
+            "displayName": "CSS Selector",
+            "name": "cssSelector",
+            "type": "string",
+            "default": "",
+            "placeholder": ".price",
+            "description": "The CSS selector to use"
+          },
+          {
+            "displayName": "Return Value",
+            "name": "returnValue",
+            "type": "options",
+            "options": [
+              {
+                "name": "Attribute",
+                "value": "attribute",
+                "description": "Get an attribute value like \"class\" from an element"
+              },
+              {
+                "name": "HTML",
+                "value": "html",
+                "description": "Get the HTML the element contains"
+              },
+              {
+                "name": "Text",
+                "value": "text",
+                "description": "Get only the text content of the element"
+              },
+              {
+                "name": "Value",
+                "value": "value",
+                "description": "Get value of an input, select or textarea"
+              }
+            ],
+            "default": "text",
+            "description": "What kind of data should be returned"
+          },
+          {
+            "displayName": "Attribute",
+            "name": "attribute",
+            "type": "string",
+            "displayOptions": {
+              "show": {
+                "returnValue": [
+                  "attribute"
+                ]
+              }
+            },
+            "default": "",
+            "placeholder": "class",
+            "description": "The name of the attribute to return the value off"
+          },
+          {
+            "displayName": "Return Array",
+            "name": "returnArray",
+            "type": "boolean",
+            "default": false,
+            "description": "Whether to return the values as an array so if multiple ones get found they also get returned separately. If not set all will be returned as a single string."
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "displayName": "Options",
+    "name": "options",
+    "type": "collection",
+    "placeholder": "Add Option",
+    "default": {},
+    "displayOptions": {
+      "show": {
+        "operation": [
+          "extractHtmlContent"
+        ]
+      }
+    },
+    "options": [
+      {
+        "displayName": "Trim Values",
+        "name": "trimValues",
+        "type": "boolean",
+        "default": true,
+        "description": "Whether to remove automatically all spaces and newlines from the beginning and end of the values"
+      }
+    ]
+  }
+];

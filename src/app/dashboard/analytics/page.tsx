@@ -249,11 +249,11 @@ export default function AnalyticsPage() {
           </div>
           {liveData && Object.keys(liveData.channelBreakdown).length > 0 ? (() => {
             const total = Object.values(liveData.channelBreakdown).reduce((a, b) => a + b, 0) || 1;
-            const CHANNEL_COLORS: Record<string, string> = {
+            const CHANNEL_COLORS = {
               instagram: 'bg-pink-400', whatsapp: 'bg-green-500',
               email: 'bg-blue-500', linkedin: 'bg-blue-700', voice: 'bg-purple-500',
             };
-            const CHANNEL_LABELS: Record<string, string> = {
+            const CHANNEL_LABELS = {
               instagram: 'Instagram', whatsapp: 'WhatsApp',
               email: 'Email', linkedin: 'LinkedIn', voice: 'Voice',
             };

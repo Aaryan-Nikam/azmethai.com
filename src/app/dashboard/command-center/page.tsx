@@ -179,7 +179,7 @@ function MetricsGraph() {
 function EmployeesLive({ filter, sort }: { filter: string; sort: string }) {
   let employees = [...mockEmployees];
   if (filter !== 'All') {
-    const roleMap: Record<string, string> = { Sales: 'Sales', Ops: 'Ops', Distro: 'Distribution' };
+    const roleMap = { Sales: 'Sales', Ops: 'Ops', Distro: 'Distribution' };
     if (filter === 'Paused') employees = employees.filter(e => e.status === 'Paused');
     else employees = employees.filter(e => e.role === (roleMap[filter] || filter));
   }

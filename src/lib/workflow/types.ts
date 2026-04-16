@@ -59,7 +59,7 @@ export interface AzmethNodeDefinition {
   displayName: string;
   name: string;
   icon: string;
-  group: string | string[];
+  group: string;
   version: number | number[];
   description: string;
   defaults?: {

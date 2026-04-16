@@ -1,0 +1,107 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User & Auth
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  createdAt     DateTime  @default(now())
+  agents        Agent[]
+  workflows     Workflow[]
+  apiKeys       ApiKey[]
+  credentials   Credential[]
+}
+
+// Deployed Agents
+model Agent {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  type          String    // 'azmeth' | 'openclaw' | 'custom'
+  name          String
+  description   String?
+  avatarUrl     String?   // Spline 3D model URL
+  status        String    // 'running' | 'paused' | 'stopped'
+  config        Json      // Model, tools, system prompt
+  containerUrl  String?   // Docker container endpoint
+  metrics       Json      // Stats, usage data
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  workflows     Workflow[]
+  executions    AgentExecution[]
+}
+
+// Workflows (Azmeth native flows)
+model Workflow {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  agentId       String?   // Optional: created by agent
+  agent         Agent?    @relation(fields: [agentId], references: [id])
+  name          String
+  description   String?
+  flowDefinition Json     // Azmeth native flow JSON (React Flow compatible)
+  status        String    // 'active' | 'paused' | 'draft'
+  lastRun       DateTime?
+  createdAt     DateTime  @default(now())
+  executions    WorkflowExecution[]
+}
+
+// Workflow Execution Logs
+model WorkflowExecution {
+  id            String    @id @default(cuid())
+  workflowId    String
+  workflow      Workflow  @relation(fields: [workflowId], references: [id])
+  status        String    // 'running' | 'success' | 'failed'
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+  logs          Json      // Step-by-step logs
+  result        Json?     // Output data
+}
+
+// Agent Execution Logs
+model AgentExecution {
+  id            String    @id @default(cuid())
+  agentId       String
+  agent         Agent     @relation(fields: [agentId], references: [id])
+  task          String    // What user asked
+  status        String    // 'running' | 'complete' | 'failed'
+  timeline      Json      // Timestamped action log
+  metrics       Json      // Leads found, posts made, etc.
+  startedAt     DateTime  @default(now())
+  completedAt   DateTime?
+}
+
+// User API Keys (for integrations)
+model ApiKey {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  service       String    // 'facebook' | 'google' | etc.
+  keyData       String    // Removed @encrypted custom attribute for standard prisma
+  createdAt     DateTime  @default(now())
+}
+
+// N8n Execution Credentials
+model Credential {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name        String   // User-friendly name
+  type        String   // e.g., 'gmailOAuth2', 'slackOAuth2'
+  data        Json     // Encrypted credential data
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([userId])
+  @@index([type])
+}

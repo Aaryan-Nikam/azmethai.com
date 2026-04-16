@@ -28,49 +28,7 @@ interface Campaign {
   createdAt: string;
 }
 
-// ─── Mock Data ────────────────────────────────────────────────────────────────
-
-const MOCK_CAMPAIGNS: Campaign[] = [
-  {
-    id: 'camp-1',
-    name: 'SaaS CEOs — NY Q2 2026',
-    status: 'running',
-    channels: ['gmail'],
-    totalLeads: 248,
-    qualified: 192,
-    sent: 140,
-    opened: 68,
-    replied: 22,
-    framework: 'AIDA',
-    createdAt: 'Apr 10, 2026',
-  },
-  {
-    id: 'camp-2',
-    name: 'Fintech VPs — Series A',
-    status: 'paused',
-    channels: ['gmail', 'instantly'],
-    totalLeads: 310,
-    qualified: 221,
-    sent: 200,
-    opened: 94,
-    replied: 31,
-    framework: 'PAS',
-    createdAt: 'Apr 5, 2026',
-  },
-  {
-    id: 'camp-3',
-    name: 'UK Marketing Agencies',
-    status: 'draft',
-    channels: ['instantly'],
-    totalLeads: 0,
-    qualified: 0,
-    sent: 0,
-    opened: 0,
-    replied: 0,
-    framework: 'BAB',
-    createdAt: 'Apr 12, 2026',
-  },
-];
+// ─── Real Data Hook ────────────────────────────────────────────────────────────
 
 const STATUS_CFG: Record<CampaignStatus, { label: string; dot: string; badge: string }> = {
   running:   { label: '● Running',   dot: 'bg-emerald-400', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
@@ -133,9 +91,9 @@ function CampaignCard({ camp }: { camp: Campaign }) {
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <Link href={`/dashboard/outbound/leads?campaign=${camp.id}`}
+          <Link href={`/dashboard/outbound/campaigns/${camp.id}`}
             className="opacity-0 group-hover:opacity-100 flex items-center gap-1 text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 px-2.5 py-1.5 rounded-lg transition-all">
-            View <ArrowUpRight size={10} />
+            View Pipeline <ArrowUpRight size={10} />
           </Link>
           <div className="relative">
             <button onClick={() => setMenu(m => !m)} className="p-1.5 hover:bg-gray-100 rounded-lg text-gray-400 transition-colors">
@@ -192,13 +150,34 @@ function CampaignCard({ camp }: { camp: Campaign }) {
 export default function OutboundHQPage() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | CampaignStatus>('all');
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const allLeads    = MOCK_CAMPAIGNS.reduce((a, c) => a + c.totalLeads, 0);
-  const allSent     = MOCK_CAMPAIGNS.reduce((a, c) => a + c.sent, 0);
-  const allReplied  = MOCK_CAMPAIGNS.reduce((a, c) => a + c.replied, 0);
-  const allQual     = MOCK_CAMPAIGNS.reduce((a, c) => a + c.qualified, 0);
+  React.useEffect(() => {
+    const fetchCampaigns = async () => {
+      try {
+        const res = await fetch('/api/outbound/campaigns/summary');
+        if (res.ok) {
+          const json = await res.json();
+          setCampaigns(json.campaigns || []);
+        }
+      } catch (err) {
+        console.error('Failed to fetch campaigns', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCampaigns();
+    const interval = setInterval(fetchCampaigns, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const filtered = MOCK_CAMPAIGNS.filter(c => {
+  const allLeads    = campaigns.reduce((a, c) => a + c.totalLeads, 0);
+  const allSent     = campaigns.reduce((a, c) => a + c.sent, 0);
+  const allReplied  = campaigns.reduce((a, c) => a + c.replied, 0);
+  const allQual     = campaigns.reduce((a, c) => a + c.qualified, 0);
+
+  const filtered = campaigns.filter(c => {
     const q = search.toLowerCase();
     return (filter === 'all' || c.status === filter) &&
       (c.name.toLowerCase().includes(q) || c.framework.toLowerCase().includes(q));
@@ -299,12 +278,21 @@ export default function OutboundHQPage() {
 
         {/* Campaign cards */}
         <div>
-          <h2 className="text-sm font-bold text-gray-900 mb-4">Campaigns ({filtered.length})</h2>
-          <div className="grid grid-cols-2 gap-4">
-            {filtered.map(camp => <CampaignCard key={camp.id} camp={camp} />)}
-          </div>
-          {filtered.length === 0 && (
-            <div className="text-center py-16 text-gray-400">
+          <h2 className="text-sm font-bold text-gray-900 mb-4">Live Campaigns ({filtered.length})</h2>
+          
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-24 text-gray-400">
+              <RefreshCw size={24} className="animate-spin mb-4" />
+              <p className="text-sm font-semibold">Syncing outbounds...</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {filtered.map(camp => <CampaignCard key={camp.id} camp={camp} />)}
+            </div>
+          )}
+          
+          {!loading && filtered.length === 0 && (
+            <div className="text-center py-16 text-gray-400 bg-white border border-gray-200 border-dashed rounded-3xl">
               <Rocket size={32} className="mx-auto mb-3 opacity-20" />
               <p className="text-sm font-medium">No campaigns found</p>
               <Link href="/dashboard/systems/outbound-engine" className="mt-3 inline-block text-xs text-rose-600 font-bold hover:underline">

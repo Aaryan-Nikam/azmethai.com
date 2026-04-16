@@ -148,10 +148,45 @@ export default function EquippingInterface() {
           {currentStep === 3 && (
             <div>
               <h1 style={{ marginBottom: '16px' }}>Where do they work?</h1>
-              <p style={{ marginBottom: '40px' }}>Select the communication channels this employee will monitor and act on.</p>
+              <p style={{ marginBottom: '40px' }}>Select the communication channels this employee will monitor and act on. Click on active integrations to authenticate.</p>
               
               <div className="role-grid">
-                {['WhatsApp', 'Slack', 'Email (Outlook)', 'Internal Gateway'].map(channel => (
+                
+                {/* Live Facebook/Instagram Connection */}
+                <div 
+                  className={`glass-panel role-card ${formData.channels.includes('Instagram/Meta') ? 'selected' : ''}`}
+                  onClick={() => {
+                    // 1. Mark as selected in state
+                    const list = formData.channels;
+                    if (!list.includes('Instagram/Meta')) {
+                      setFormData({ ...formData, channels: [...list, 'Instagram/Meta'] });
+                    }
+                    
+                    // 2. Launch popup OAuth flow
+                    // Use tenant_id or company_domain if available as user identifier
+                    const tenantId = formData.company_domain || 'anon_tenant';
+                    const authUrl = `/api/auth/meta/connect?platform=instagram&source=onboarding&userId=${encodeURIComponent(tenantId)}`;
+                    
+                    // Open in a popup centered on the screen
+                    const w = 500;
+                    const h = 700;
+                    const left = window.screen.width / 2 - w / 2;
+                    const top = window.screen.height / 2 - h / 2;
+                    window.open(authUrl, 'MetaAuth', `width=${w},height=${h},top=${top},left=${left}`);
+                  }}
+                  style={{ border: '1px solid #1877F2', position: 'relative' }}
+                >
+                  {formData.channels.includes('Instagram/Meta') && (
+                    <div style={{ position: 'absolute', top: 12, right: 12, color: 'var(--success)' }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    </div>
+                  )}
+                  <h3 style={{ color: '#1877F2' }}>Instagram & Meta</h3>
+                  <p style={{ fontSize: '0.85rem', marginTop: '8px' }}>Launch Auth Popup &rarr;</p>
+                </div>
+
+                {/* Other Static Options */}
+                {['WhatsApp', 'Slack', 'Email (Outlook)'].map(channel => (
                   <div 
                     key={channel} 
                     className={`glass-panel role-card ${formData.channels.includes(channel) ? 'selected' : ''}`}
@@ -164,7 +199,7 @@ export default function EquippingInterface() {
                     }}
                   >
                     <h3 style={{ color: 'var(--text-primary)' }}>{channel}</h3>
-                    <p style={{ fontSize: '0.85rem', marginTop: '8px' }}>Active integration ready</p>
+                    <p style={{ fontSize: '0.85rem', marginTop: '8px' }}>Internal Gateway Route</p>
                   </div>
                 ))}
               </div>

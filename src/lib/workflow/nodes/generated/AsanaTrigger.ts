@@ -1,0 +1,43 @@
+/**
+ * GENERATED FILE - DO NOT EDIT
+ * Source: /Users/aaryannikam/nocobase/clone/node_modules/n8n-nodes-base/dist/nodes/Asana/AsanaTrigger.node.js
+ */
+import { AzmethNodeProperty } from '../../types';
+
+export const AsanaTriggerProperties: AzmethNodeProperty[] = [
+  {
+    "displayName": "Authentication",
+    "name": "authentication",
+    "type": "options",
+    "options": [
+      {
+        "name": "Access Token",
+        "value": "accessToken"
+      },
+      {
+        "name": "OAuth2",
+        "value": "oAuth2"
+      }
+    ],
+    "default": "accessToken"
+  },
+  {
+    "displayName": "Resource",
+    "name": "resource",
+    "type": "string",
+    "default": "",
+    "required": true,
+    "description": "The resource ID to subscribe to. The resource can be a task or project."
+  },
+  {
+    "displayName": "Workspace Name or ID",
+    "name": "workspace",
+    "type": "options",
+    "typeOptions": {
+      "loadOptionsMethod": "getWorkspaces"
+    },
+    "options": [],
+    "default": "",
+    "description": "The workspace ID the resource is registered under. This is only required if you want to allow overriding existing webhooks. Choose from the list, or specify an ID using an <a href=\"https://docs.n8n.io/code-examples/expressions/\">expression</a>."
+  }
+];

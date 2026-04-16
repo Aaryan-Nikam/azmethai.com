@@ -1,2 +1,6 @@
-// Registry of all migrated n8n integrations
-export {};
+export * from './HttpRequest';
+export * from './Gmail';
+export * from './Hunter';
+export * from './Slack';
+export * from './HubSpot';
+export * from './Integrations';
