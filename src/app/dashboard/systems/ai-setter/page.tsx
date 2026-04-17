@@ -215,6 +215,29 @@ export default function AiSetterSalesEngine() {
     i.cat.toLowerCase().includes(integrationQuery.toLowerCase())
   );
 
+  // ─── DASHBOARD STATE ──────────────────────────────────────────────────
+  const [stats, setStats] = useState({ pipelineGenerated: 0, meetingsBooked: 0, outboundVolume: 0, activeChannels: [] as string[] });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
+  useEffect(() => {
+    if (isConfigured) {
+      fetch('/api/sales-engine/stats')
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error) {
+            setStats({
+              pipelineGenerated: data.pipelineGenerated || 0,
+              meetingsBooked: data.meetingsBooked || 0,
+              outboundVolume: data.outboundVolume || 0,
+              activeChannels: data.activeChannels || []
+            });
+          }
+          setIsLoadingStats(false);
+        })
+        .catch(() => setIsLoadingStats(false));
+    }
+  }, [isConfigured]);
+
   // ─── DASHBOARD VIEW ───────────────────────────────────────────────────
   if (isConfigured) {
     return (
@@ -240,13 +263,15 @@ export default function AiSetterSalesEngine() {
           <div className="relative">
             <p className="text-xs uppercase tracking-widest text-gray-400 font-bold mb-2">Total Pipeline Generated</p>
             <div className="flex items-baseline gap-3 mb-8">
-              <span className="text-6xl font-serif tracking-tight">$142,500</span>
+              <span className="text-6xl font-serif tracking-tight">
+                {isLoadingStats ? '...' : `$${stats.pipelineGenerated.toLocaleString()}`}
+              </span>
               <span className="text-green-400 text-sm font-semibold bg-green-500/10 border border-green-500/20 px-2.5 py-1 rounded-full">+14% this week</span>
             </div>
             <div className="grid grid-cols-3 gap-8">
               {[
-                { label: 'Meetings Booked', val: '24', unit: '' },
-                { label: 'Outbound Volume', val: '1,840', unit: 'touches' },
+                { label: 'Meetings Booked', val: isLoadingStats ? '...' : stats.meetingsBooked.toString(), unit: '' },
+                { label: 'Outbound Volume', val: isLoadingStats ? '...' : stats.outboundVolume.toLocaleString(), unit: 'touches' },
                 { label: 'Agent Health', val: '99.9%', unit: '', green: true },
               ].map(stat => (
                 <div key={stat.label}>

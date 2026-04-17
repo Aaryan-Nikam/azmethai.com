@@ -177,7 +177,7 @@ export default function AgentEditorMaster() {
                  <div className="flex gap-4">
                    <span className="text-[9px] mt-0.5 w-16 text-right shrink-0 text-[var(--text-muted)]">10:45:02</span>
                    <div className="flex-1 flex flex-col gap-1">
-                     <div><span className="text-[#00E5FF] font-bold">AGENT_RSP {"<<<"}</span> Yes absolutely! I can help you set up IronPass compliance routing. What specific regulations are you looking to enforce?</div>
+                     <div><span className="text-[#00E5FF] font-bold">AGENT_RSP {"<<<"}</span> Yes absolutely! I can help you set up Azmeth AI compliance routing. What specific regulations are you looking to enforce?</div>
                      <div className="flex items-center gap-2 mt-1">
                        <div className="flex items-center gap-0.5">
                          {[1,2,3,4,3,2,1].map((h, i) => (

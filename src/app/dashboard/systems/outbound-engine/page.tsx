@@ -384,10 +384,12 @@ export default function OutboundEngineSetup() {
       }
 
       localStorage.setItem(SETUP_KEY, 'true');
+      router.refresh(); // Clear NextJS client router cache
       router.push('/dashboard/outbound');
     } catch (err) {
       console.error('Launch failed:', err);
       localStorage.setItem(SETUP_KEY, 'true');
+      router.refresh(); // Clear NextJS client router cache
       router.push('/dashboard/outbound');
     } finally {
       setIsLaunching(false);

@@ -14,19 +14,26 @@ type LeadStatus = 'new' | 'contacted' | 'qualified' | 'meeting_set' | 'disqualif
 type Channel = 'instagram' | 'whatsapp' | 'email' | 'linkedin' | 'voice';
 
 interface Lead {
-  lead_id: string;
-  channel: Channel;
+  lead_id: string; // The ID
+  system: 'inbound' | 'outbound';
+  channel: Channel | string;
   sender_name: string;
-  sender_contact: string;
-  latest_score: number;
-  last_intent: string | null;
-  paused: boolean;
-  last_seen: string;
+  company_name: string;
+  role_title: string;
   status: LeadStatus;
-  agent_name: string;
+  latest_score: number;
+  last_seen: string;
   starred: boolean;
-  company_name: string | null;
-  role_title: string | null;
+  
+  // Extra inbound
+  last_intent?: string;
+  agent_name?: string;
+  sender_contact?: string;
+  
+  // Extra outbound
+  stage?: string;
+  campaign_id?: string;
+  source?: string;
 }
 
 // ─── Config ────────────────────────────────────────────────────────────────────
@@ -50,7 +57,7 @@ const CHANNEL_MAP: Record<Channel, { icon: React.ElementType; color: string; lab
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
 function displayName(lead: Lead): string {
-  if (lead.sender_name?.trim()) return lead.sender_name;
+  if (lead.sender_name?.trim() && lead.sender_name !== 'Anonymous' && lead.sender_name !== 'Unknown') return lead.sender_name;
   if (lead.sender_contact) return `#${lead.sender_contact.slice(-6)}`;
   return lead.lead_id.split('_').slice(-1)[0]?.slice(-8) || 'Unknown';
 }
@@ -86,8 +93,9 @@ export default function LeadsCRMPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  const [systemFilter, setSystemFilter] = useState<'all' | 'inbound' | 'outbound'>('all');
   const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all');
-  const [channelFilter, setChannelFilter] = useState<Channel | 'all'>('all');
+  const [channelFilter, setChannelFilter] = useState<Channel | string | 'all'>('all');
   const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<'score' | 'recent' | 'name'>('score');
 
@@ -114,7 +122,7 @@ export default function LeadsCRMPage() {
     await fetch('/api/leads', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lead_id, ...updates }),
+      body: JSON.stringify({ lead_id, system: leads.find(l => l.lead_id === lead_id)?.system, ...updates }),
     });
   };
 
@@ -124,8 +132,9 @@ export default function LeadsCRMPage() {
       const name = displayName(l).toLowerCase();
       const matchSearch = name.includes(q) || (l.company_name || '').toLowerCase().includes(q) || l.channel.includes(q);
       const matchStatus = statusFilter === 'all' || l.status === statusFilter;
+      const matchSystem = systemFilter === 'all' || l.system === systemFilter;
       const matchChannel = channelFilter === 'all' || l.channel === channelFilter;
-      return matchSearch && matchStatus && matchChannel;
+      return matchSearch && matchStatus && matchSystem && matchChannel;
     })
     .sort((a, b) =>
       sortBy === 'score' ? (b.latest_score || 0) - (a.latest_score || 0)
@@ -185,6 +194,12 @@ export default function LeadsCRMPage() {
                 placeholder="Search leads by name, company, or channel…"
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" />
             </div>
+            <select value={systemFilter} onChange={e => setSystemFilter(e.target.value as 'all' | 'inbound' | 'outbound')}
+              className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-700 focus:outline-none focus:border-gray-400 appearance-none cursor-pointer">
+              <option value="all">All Systems</option>
+              <option value="inbound">Inbound (Chat)</option>
+              <option value="outbound">Outbound (Engine)</option>
+            </select>
             <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as LeadStatus | 'all')}
               className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-700 focus:outline-none focus:border-gray-400 appearance-none cursor-pointer">
               <option value="all">All Statuses</option>
@@ -218,6 +233,7 @@ export default function LeadsCRMPage() {
               <tr>
                 <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-6 py-3 w-8" />
                 <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">Lead</th>
+                <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">System</th>
                 <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">Channel</th>
                 <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">Status</th>
                 <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">Intent</th>
@@ -242,8 +258,8 @@ export default function LeadsCRMPage() {
                   </tr>
                 ))
               ) : filtered.map(lead => {
-                const ChannelIcon = CHANNEL_MAP[lead.channel]?.icon || Mail;
-                const StatusCfg = STATUS_MAP[lead.status];
+                const ChannelIcon = CHANNEL_MAP[lead.channel as Channel]?.icon || Mail;
+                const StatusCfg = STATUS_MAP[lead.status] || STATUS_MAP['new'];
                 const StatusIcon = StatusCfg.icon;
                 return (
                   <tr key={lead.lead_id}
@@ -266,9 +282,14 @@ export default function LeadsCRMPage() {
                       </div>
                     </td>
                     <td className="px-4 py-3.5">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-widest ${lead.system === 'inbound' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-orange-50 text-orange-700 border border-orange-200'}`}>
+                        {lead.system}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3.5">
                       <div className="flex items-center gap-1.5">
-                        <ChannelIcon size={14} className={CHANNEL_MAP[lead.channel]?.color || 'text-gray-500'} />
-                        <span className="text-xs text-gray-600 capitalize">{CHANNEL_MAP[lead.channel]?.label || lead.channel}</span>
+                        <ChannelIcon size={14} className={CHANNEL_MAP[lead.channel as Channel]?.color || 'text-gray-500'} />
+                        <span className="text-[11px] font-bold text-gray-600 capitalize">{CHANNEL_MAP[lead.channel as Channel]?.label || lead.channel}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3.5">
