@@ -313,8 +313,21 @@ export default function LiveInboxPage() {
                   Manual
                 </button>
               </div>
-              <button className="text-xs font-semibold bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 transition-colors">
-                Book Meeting
+              <button
+                onClick={async () => {
+                  if (!activeThread) return;
+                  const newStatus = 'meeting_set' as const;
+                  await fetch('/api/leads', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ lead_id: activeThread.lead_id, status: newStatus }),
+                  });
+                  setThreads(p => p.map(t => t.lead_id === activeThread.lead_id ? { ...t, status: newStatus } : t));
+                  setActiveThread({ ...activeThread, status: newStatus });
+                }}
+                disabled={activeThread.status === 'meeting_set'}
+                className="text-xs font-semibold bg-blue-600 text-white px-4 py-1.5 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+                {activeThread.status === 'meeting_set' ? '✓ Meeting Booked' : 'Book Meeting'}
               </button>
               <MoreHorizontal size={16} className="text-gray-400 cursor-pointer hover:text-gray-700" />
             </div>
@@ -439,8 +452,21 @@ export default function LiveInboxPage() {
           </div>
 
           <div className="p-4 border-t border-gray-100 space-y-2 mt-auto">
-            <button className="w-full py-2.5 bg-gray-900 text-white text-xs font-bold rounded-xl hover:bg-gray-800 transition-colors">
-              Book Meeting
+            <button
+              onClick={async () => {
+                if (!activeThread) return;
+                const newStatus = 'meeting_set' as const;
+                await fetch('/api/leads', {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ lead_id: activeThread.lead_id, status: newStatus }),
+                });
+                setThreads(p => p.map(t => t.lead_id === activeThread.lead_id ? { ...t, status: newStatus } : t));
+                setActiveThread({ ...activeThread, status: newStatus });
+              }}
+              disabled={activeThread.status === 'meeting_set'}
+              className="w-full py-2.5 bg-gray-900 text-white text-xs font-bold rounded-xl hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+              {activeThread.status === 'meeting_set' ? '✓ Meeting Booked' : 'Book Meeting'}
             </button>
             <button
               onClick={async () => {

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   TrendingUp, Calendar,
   Camera, Hash, Mail, Link2, Phone, ArrowUpRight,
@@ -17,12 +18,6 @@ const WEEKLY_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', '
 const CHANNEL_ICONS: Record<string, React.ElementType> = {
   instagram: Camera, whatsapp: Hash, email: Mail, linkedin: Link2, voice: Phone,
 };
-
-const AGENT_PERF = [
-  { name: 'SDR Alpha', msgs: 1840, meetings: 24, conv: '18.4%', avgReply: '3.8s', status: 'active' },
-  { name: 'Email Setter', msgs: 920, meetings: 9, conv: '11.2%', avgReply: '—', status: 'active' },
-  { name: 'LinkedIn Connector', msgs: 340, meetings: 3, conv: '6.1%', avgReply: '—', status: 'paused' },
-];
 
 // ─── Deterministic heatmap data (seeded LCG — no Math.random() in render) ────
 function seededRandom(seed: number) {
@@ -108,7 +103,19 @@ export default function AnalyticsPage() {
                 </button>
               ))}
             </div>
-            <button className="flex items-center gap-2 border border-gray-200 bg-white text-gray-700 text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
+            <button
+              onClick={() => {
+                if (!liveData) return;
+                const blob = new Blob([JSON.stringify(liveData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `azmeth-analytics-${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}
+              disabled={!liveData}
+              className="flex items-center gap-2 border border-gray-200 bg-white text-gray-700 text-sm font-medium px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors shadow-sm disabled:opacity-40">
               <Calendar size={14} /> Export
             </button>
           </div>
@@ -301,60 +308,43 @@ export default function AnalyticsPage() {
           )}
         </div>
 
-        {/* Agent Performance Table */}
+        {/* Agent Performance — live from API */}
         <div className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-5">
             <div>
               <h2 className="text-base font-bold text-gray-900">Agent Performance</h2>
-              <p className="text-xs text-gray-400">Output metrics per deployed Sales Agent</p>
+              <p className="text-xs text-gray-400">Output metrics for your deployed AI Sales Agent</p>
             </div>
-            <button className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
-              View All <ArrowUpRight size={12} />
-            </button>
+            <Link href="/dashboard/employees"
+              className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1">
+              View Agent <ArrowUpRight size={12} />
+            </Link>
           </div>
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100">
-                {['Agent', 'Messages Sent', 'Meetings Booked', 'Conv. Rate', 'Avg. Reply', 'Status', 'Trend'].map(h => (
-                  <th key={h} className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest pb-3 pr-4">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-50">
-              {AGENT_PERF.map(a => (
-                <tr key={a.name} className="hover:bg-gray-50/60 transition-colors">
-                  <td className="py-4 pr-4">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 bg-gray-900 rounded-lg flex items-center justify-center text-xs font-bold text-white">
-                        {a.name[0]}
-                      </div>
-                      <span className="text-sm font-semibold text-gray-900">{a.name}</span>
-                    </div>
-                  </td>
-                  <td className="py-4 pr-4 text-sm font-semibold text-gray-900">{a.msgs.toLocaleString()}</td>
-                  <td className="py-4 pr-4 text-sm font-semibold text-gray-900">{a.meetings}</td>
-                  <td className="py-4 pr-4">
-                    <span className="text-sm font-bold text-green-600">{a.conv}</span>
-                  </td>
-                  <td className="py-4 pr-4">
-                    <div className="flex items-center gap-1.5">
-                      <Clock size={11} className="text-gray-400" />
-                      <span className="text-sm text-gray-600">{a.avgReply}</span>
-                    </div>
-                  </td>
-                  <td className="py-4 pr-4">
-                    <span className={`text-[10px] font-bold px-2 py-1 rounded-full border
-                      ${a.status === 'active' ? 'text-green-700 bg-green-50 border-green-200' : 'text-gray-500 bg-gray-50 border-gray-200'}`}>
-                      {a.status === 'active' ? '● Active' : '○ Paused'}
-                    </span>
-                  </td>
-                  <td className="py-4">
-                    <SparkLine data={[30,45,38,57,65,72,88,95,80,97,115,145].map(v => v * (a.msgs / 1840))} />
-                  </td>
-                </tr>
+          {liveData ? (
+            <div className="grid grid-cols-4 gap-5">
+              {[
+                { label: 'Total Leads', val: liveData.kpis.totalLeads, color: 'text-gray-900', sub: 'across all channels' },
+                { label: 'Meetings Booked', val: liveData.kpis.meetingsBooked, color: 'text-purple-700', sub: 'status: meeting_set' },
+                { label: 'Qualified', val: liveData.funnel.qualified, color: 'text-blue-700', sub: 'high intent leads' },
+                { label: 'Reply Rate', val: `${liveData.kpis.replyRate}%`, color: 'text-emerald-700', sub: 'leads with last_seen' },
+              ].map(s => (
+                <div key={s.label} className="bg-gray-50 border border-gray-100 rounded-2xl p-5">
+                  <p className={`text-3xl font-bold tabular-nums ${s.color} mb-1`}>{s.val.toLocaleString?.() ?? s.val}</p>
+                  <p className="text-xs font-bold text-gray-700 mb-0.5">{s.label}</p>
+                  <p className="text-[10px] text-gray-400">{s.sub}</p>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          ) : (
+            <div className="grid grid-cols-4 gap-5">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="bg-gray-50 border border-gray-100 rounded-2xl p-5 space-y-3 animate-pulse">
+                  <div className="h-7 bg-gray-200 rounded w-16" />
+                  <div className="h-3 bg-gray-200 rounded w-24" />
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Activity Heatmap Placeholder */}
