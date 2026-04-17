@@ -1,6 +1,7 @@
-export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, AgentConfig } from '@/lib/supabase';
+
+export const dynamic = 'force-dynamic';
 
 const ALLOWED_FIELDS: (keyof AgentConfig)[] = [
   'business_name', 'business_description', 'brand_voice', 'knowledge_base',

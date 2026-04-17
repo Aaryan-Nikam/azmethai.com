@@ -1,12 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@/lib/supabase";
 
-export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+export async function GET(request: NextRequest) {
+  const supabase = createServerClient();
 
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
@@ -60,6 +57,7 @@ export async function GET(request: NextRequest) {
     ? new Date(Date.now() + longTokenData.expires_in * 1000).toISOString()
     : null;
 
+  const supabase = createServerClient();
   const { error: dbError } = await supabase.from("platform_connections").upsert(
     {
       user_id: userId,

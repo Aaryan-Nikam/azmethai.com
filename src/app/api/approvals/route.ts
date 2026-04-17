@@ -1,13 +1,10 @@
-export const runtime = 'edge';
-export const dynamic = "force-dynamic";
-import { createClient } from '@supabase/supabase-js'
-import { NextResponse } from 'next/server'
+import { createServerClient } from '@/lib/supabase';
+import { NextResponse } from 'next/server';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!
-  )
+  const supabase = createServerClient();
   try {
     const { data: approvals, error } = await supabase
       .from('approval_queue')
@@ -28,10 +25,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const supabase = createClient(
-    process.env.SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_KEY!
-  )
+  const supabase = createServerClient();
   try {
     const { id, action, managerEmail } = await req.json()
 

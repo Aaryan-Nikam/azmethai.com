@@ -1,6 +1,7 @@
-export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@/lib/supabase';
+
+export const dynamic = 'force-dynamic';
 
 // ─── GET /api/inbox/messages?lead_id=xxx ─────────────────────────────────────
 // Returns paginated message history for a specific lead thread.

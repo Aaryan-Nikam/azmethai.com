@@ -1,34 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { MetaAdapter } from "@/core/agent/channels/meta";
+import { createServerClient } from "@/lib/supabase";
 
-export const runtime = 'edge';
+export const dynamic = 'force-dynamic';
 
-const DEPLOY_VERSION = "2026-04-16-v3"; // Updated deploy version
+const DEPLOY_VERSION = "2026-04-16-v3";
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Supabase raw fetch helper — service_role only, bypasses all RLS
-// ─────────────────────────────────────────────────────────────────────────────
 async function dbInsert(data: Record<string, unknown>): Promise<{ ok: boolean; error: string | null }> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return { ok: false, error: "Missing Supabase credentials" };
-
-  const res = await fetch(`${url}/rest/v1/webhook_queue`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "apikey": key,
-      "Authorization": `Bearer ${key}`,
-      // return=minimal → no body, just 201/409. ignore-duplicates → silent on dup key
-      "Prefer": "return=minimal,resolution=ignore-duplicates",
-    },
-    body: JSON.stringify(data),
-  });
-
-  if (!res.ok) {
-    return { ok: false, error: await res.text() };
+  try {
+    const supabase = createServerClient();
+    const { error } = await supabase.from('webhook_queue').insert(data);
+    if (error) return { ok: false, error: error.message };
+    return { ok: true, error: null };
+  } catch (err: any) {
+    return { ok: false, error: err.message };
   }
-  return { ok: true, error: null };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -1,6 +1,7 @@
-export const runtime = 'edge';
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient, ChatLead, ChatMessage } from '@/lib/supabase';
+
+export const dynamic = 'force-dynamic';
 
 // ─── GET /api/inbox ───────────────────────────────────────────────────────────
 // Returns all active threads with the last message previewed.
