@@ -33,11 +33,23 @@ export const supabase = createClient(
 /**
  * Server-side Supabase client — used in /api routes only.
  * Uses server-only env vars (no NEXT_PUBLIC_ prefix).
- * Never called from browser code.
+ * Requires the SERVICE ROLE key — never call from browser code.
  */
 export function createServerClient() {
   const url = getValidUrl([process.env.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL]);
-  const key = getValidKey([process.env.SUPABASE_SERVICE_KEY, process.env.SUPABASE_SERVICE_ROLE_KEY, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY]);
+  // Try service role key first, then fall back to legacy env name
+  // NEVER fall back to anon key — server routes require service_role to bypass RLS
+  const key = getValidKey([
+    process.env.SUPABASE_SERVICE_ROLE_KEY,  // preferred name
+    process.env.SUPABASE_SERVICE_KEY,       // legacy name (kept for compat)
+  ]);
+  
+  if (!key) {
+    throw new Error(
+      'Missing Supabase service role key. Set SUPABASE_SERVICE_ROLE_KEY in your environment variables. ' +
+      'Get it from: Supabase Dashboard → Project Settings → API → service_role (secret)'
+    );
+  }
   
   return createClient(url, key, {
     auth: { persistSession: false },

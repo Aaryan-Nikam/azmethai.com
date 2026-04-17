@@ -194,31 +194,16 @@ export default function AiSetterSalesEngine() {
     tools: [] as string[],
   });
 
+  // ─── DASHBOARD STATE — must be declared before any early returns (Rules of Hooks) ───
+  const [stats, setStats] = useState({ pipelineGenerated: 0, meetingsBooked: 0, outboundVolume: 0, activeChannels: [] as string[] });
+  const [isLoadingStats, setIsLoadingStats] = useState(true);
+
   // Hydrate configured state from localStorage after mount
   useEffect(() => {
     setIsConfigured(localStorage.getItem(SETUP_KEY) === 'true');
   }, []);
 
-  // While hydrating show nothing (prevents FOUC)
-  if (isConfigured === null) return null;
-
-  const toggleArr = (key: keyof typeof formData, val: string) => {
-    const arr = formData[key] as string[];
-    setFormData({ ...formData, [key]: arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val] });
-  };
-
-  const nextStep = () => setCurrentStep(p => Math.min(p + 1, ONBOARDING_STEPS.length - 1));
-  const prevStep = () => setCurrentStep(p => Math.max(p - 1, 0));
-
-  const filteredIntegrations = INTEGRATIONS.filter(i =>
-    i.label.toLowerCase().includes(integrationQuery.toLowerCase()) ||
-    i.cat.toLowerCase().includes(integrationQuery.toLowerCase())
-  );
-
-  // ─── DASHBOARD STATE ──────────────────────────────────────────────────
-  const [stats, setStats] = useState({ pipelineGenerated: 0, meetingsBooked: 0, outboundVolume: 0, activeChannels: [] as string[] });
-  const [isLoadingStats, setIsLoadingStats] = useState(true);
-
+  // Fetch stats when configured
   useEffect(() => {
     if (isConfigured) {
       fetch(`/api/sales-engine/stats?t=${Date.now()}`)
@@ -237,6 +222,23 @@ export default function AiSetterSalesEngine() {
         .catch(() => setIsLoadingStats(false));
     }
   }, [isConfigured]);
+
+  // While hydrating show nothing (prevents SSR/hydration mismatch)
+  if (isConfigured === null) return null;
+
+  // ─── Helpers (defined after early return guard — not hooks, safe here) ───────
+  const toggleArr = (key: keyof typeof formData, val: string) => {
+    const arr = formData[key] as string[];
+    setFormData({ ...formData, [key]: arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val] });
+  };
+
+  const nextStep = () => setCurrentStep(p => Math.min(p + 1, ONBOARDING_STEPS.length - 1));
+  const prevStep = () => setCurrentStep(p => Math.max(p - 1, 0));
+
+  const filteredIntegrations = INTEGRATIONS.filter(i =>
+    i.label.toLowerCase().includes(integrationQuery.toLowerCase()) ||
+    i.cat.toLowerCase().includes(integrationQuery.toLowerCase())
+  );
 
   // ─── DASHBOARD VIEW ───────────────────────────────────────────────────
   if (isConfigured) {

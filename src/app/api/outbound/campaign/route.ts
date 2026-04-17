@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, campaign_id: campaignId });
 
   } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+    const msg = err instanceof Error ? err.message : ((err as any)?.message ?? JSON.stringify(err));
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }

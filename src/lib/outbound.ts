@@ -31,7 +31,9 @@ function getValidKey(keys: (string | undefined)[]): string {
 
 export function createOutboundClient() {
   const url = getValidUrl([process.env.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL]);
-  const key = getValidKey([process.env.SUPABASE_SERVICE_KEY, process.env.SUPABASE_SERVICE_ROLE_KEY, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY]);
+  // IMPORTANT: NEVER fall back to anon key here — outbound tables require service_role to bypass RLS
+  const key = getValidKey([process.env.SUPABASE_SERVICE_KEY, process.env.SUPABASE_SERVICE_ROLE_KEY]);
+  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set — outbound operations require the service role key');
 
   return createClient(url, key, { auth: { persistSession: false } });
 }
