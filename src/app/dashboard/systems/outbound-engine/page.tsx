@@ -386,14 +386,11 @@ export default function OutboundEngineSetup() {
       localStorage.setItem(SETUP_KEY, 'true');
       router.refresh(); // Clear NextJS client router cache
       router.push('/dashboard/outbound');
-    } catch (err) {
+    } catch (err: any) {
       console.error('Launch failed:', err);
-      localStorage.setItem(SETUP_KEY, 'true');
-      router.refresh(); // Clear NextJS client router cache
-      router.push('/dashboard/outbound');
-    } finally {
       setIsLaunching(false);
-    }
+      alert('Failed to launch campaign: ' + (err.message || String(err)));
+    } 
   };
   const SCRAPE_SOURCES = [
     { id: 'apify' as const, label: 'Apify Actor', icon: Zap, desc: 'Run any Apify actor with custom inputs' },

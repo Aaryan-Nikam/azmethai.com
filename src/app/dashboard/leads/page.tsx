@@ -130,10 +130,11 @@ export default function LeadsCRMPage() {
     .filter(l => {
       const q = search.toLowerCase();
       const name = displayName(l).toLowerCase();
-      const matchSearch = name.includes(q) || (l.company_name || '').toLowerCase().includes(q) || l.channel.includes(q);
+      const leadChannel = l.channel || 'web'; // Safe fallback
+      const matchSearch = name.includes(q) || (l.company_name || '').toLowerCase().includes(q) || leadChannel.includes(q);
       const matchStatus = statusFilter === 'all' || l.status === statusFilter;
       const matchSystem = systemFilter === 'all' || l.system === systemFilter;
-      const matchChannel = channelFilter === 'all' || l.channel === channelFilter;
+      const matchChannel = channelFilter === 'all' || leadChannel === channelFilter;
       return matchSearch && matchStatus && matchSystem && matchChannel;
     })
     .sort((a, b) =>

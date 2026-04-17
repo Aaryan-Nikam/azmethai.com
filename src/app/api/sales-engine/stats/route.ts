@@ -24,8 +24,10 @@ export async function GET() {
     if (campErr) throw campErr;
 
     const totalLeads = (chatLeads?.length || 0) + (outLeads?.length || 0);
-    // Arbitrary $1,500 pipeline per lead for demo visual:
-    const pipelineSum = totalLeads * 1500; 
+    // Count qualified leads only (not arbitrary multiplier)
+    const qualifiedCount = (outLeads?.filter(l => l.qualification_status === 'qualified').length || 0)
+                         + (chatLeads?.filter(l => l.status === 'meeting_set').length || 0);
+    const pipelineSum = qualifiedCount;
 
     // Calculate meetings
     let meetingsBooked = 0;

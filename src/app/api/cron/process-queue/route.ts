@@ -5,6 +5,16 @@ import { processOutboundJob, OutboundQueueRow } from "@/lib/outbound-jobs";
 
 export const dynamic = 'force-dynamic';
 
+const TIMEOUT_MS = 60000; // 60 seconds
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timeoutId: NodeJS.Timeout;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => reject(new Error('Job execution timed out')), ms);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timeoutId));
+}
+
 export async function GET(request: NextRequest) {
   // ── Cron secret guard ──────────────────────────────────────────────────────
   const cronSecret = process.env.CRON_SECRET;
@@ -34,7 +44,9 @@ export async function GET(request: NextRequest) {
     if (webhookRes.data && webhookRes.data.length > 0) {
       webhookCount = webhookRes.data.length;
       allPromises.push(
-        ...webhookRes.data.map((job: WebhookQueueRow) => processWebhookJob(supabase, job))
+        ...webhookRes.data.map((job: WebhookQueueRow) => 
+          withTimeout(processWebhookJob(supabase, job), TIMEOUT_MS)
+        )
       );
     }
 
@@ -42,7 +54,9 @@ export async function GET(request: NextRequest) {
     if (outboundRes.data && outboundRes.data.length > 0) {
       outboundCount = outboundRes.data.length;
       allPromises.push(
-        ...outboundRes.data.map((job: OutboundQueueRow) => processOutboundJob(supabase, job))
+        ...outboundRes.data.map((job: OutboundQueueRow) => 
+          withTimeout(processOutboundJob(supabase, job), TIMEOUT_MS)
+        )
       );
     }
 

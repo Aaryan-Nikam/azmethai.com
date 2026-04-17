@@ -156,7 +156,7 @@ export default function OutboundHQPage() {
   React.useEffect(() => {
     const fetchCampaigns = async () => {
       try {
-        const res = await fetch('/api/outbound/campaigns/summary');
+        const res = await fetch(`/api/outbound/campaigns/summary?t=${Date.now()}`);
         if (res.ok) {
           const json = await res.json();
           setCampaigns(json.campaigns || []);

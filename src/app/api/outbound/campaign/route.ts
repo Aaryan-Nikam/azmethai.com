@@ -14,6 +14,11 @@ export async function POST(req: NextRequest) {
     const csvContent = config.csv_content;
     const isCsvSource = config.scrape_source === 'csv';
     
+    // Dynamically derive the base URL from the incoming request (fixes Render deployment failures)
+    const protocol = req.headers.get('x-forwarded-proto') || 'http';
+    const host = req.headers.get('host') || 'localhost:3000';
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `${protocol}://${host}`;
+    
     // Clean massive string out of config
     if (config.csv_content) delete config.csv_content;
 
@@ -63,12 +68,12 @@ export async function POST(req: NextRequest) {
         // Insert mapping to outbound_leads
         const chunkSize = 100;
         for (let i = 0; i < leadsToInsert.length; i += chunkSize) {
-           await db.from('outbound_leads').insert(leadsToInsert.slice(i, i + chunkSize));
+           const { error: batchErr } = await db.from('outbound_leads').insert(leadsToInsert.slice(i, i + chunkSize));
+           if (batchErr) throw batchErr;
         }
 
-        // Ideally, we trigger `/api/outbound/campaign/[id]/run` here to kick off the pipeline
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-        fetch(`${baseUrl}/api/outbound/campaign/${campaignId}/run`, { method: 'POST' }).catch(() => {});
+        // Await the fetch so that Next.js does not severe the edge connection before the internal API fires.
+        await fetch(`${baseUrl}/api/outbound/campaign/${campaignId}/run`, { method: 'POST' }).catch(() => {});
       }
     } else {
       // Trigger Apify scraper
@@ -79,7 +84,6 @@ export async function POST(req: NextRequest) {
         max_items: config.crunchbase_max_items || 100,
       };
 
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
       const scraperRes = await fetch(`${baseUrl}/api/outbound/scrape`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

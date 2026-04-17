@@ -221,7 +221,7 @@ export default function AiSetterSalesEngine() {
 
   useEffect(() => {
     if (isConfigured) {
-      fetch('/api/sales-engine/stats')
+      fetch(`/api/sales-engine/stats?t=${Date.now()}`)
         .then(res => res.json())
         .then(data => {
           if (!data.error) {
@@ -261,18 +261,17 @@ export default function AiSetterSalesEngine() {
           <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="absolute bottom-0 left-32 w-64 h-64 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
           <div className="relative">
-            <p className="text-xs uppercase tracking-widest text-gray-400 font-bold mb-2">Total Pipeline Generated</p>
+            <p className="text-xs uppercase tracking-widest text-gray-400 font-bold mb-2">Qualified Leads in Pipeline</p>
             <div className="flex items-baseline gap-3 mb-8">
               <span className="text-6xl font-serif tracking-tight">
-                {isLoadingStats ? '...' : `$${stats.pipelineGenerated.toLocaleString()}`}
+                {isLoadingStats ? '...' : stats.pipelineGenerated.toLocaleString()}
               </span>
-              <span className="text-green-400 text-sm font-semibold bg-green-500/10 border border-green-500/20 px-2.5 py-1 rounded-full">+14% this week</span>
             </div>
             <div className="grid grid-cols-3 gap-8">
               {[
                 { label: 'Meetings Booked', val: isLoadingStats ? '...' : stats.meetingsBooked.toString(), unit: '' },
                 { label: 'Outbound Volume', val: isLoadingStats ? '...' : stats.outboundVolume.toLocaleString(), unit: 'touches' },
-                { label: 'Agent Health', val: '99.9%', unit: '', green: true },
+                { label: 'Active Channels', val: isLoadingStats ? '...' : stats.activeChannels.length.toString(), unit: '', green: true },
               ].map(stat => (
                 <div key={stat.label}>
                   <p className="text-xs text-gray-400 mb-2 uppercase tracking-wide font-medium">{stat.label}</p>
@@ -290,9 +289,9 @@ export default function AiSetterSalesEngine() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
             { icon: BrainCircuit, label: 'Agent Customization', sub: 'Model, prompts, voice', color: 'bg-blue-50 text-blue-600', href: '/dashboard/builder' },
-            { icon: Inbox, label: 'Live Inbox', sub: 'Monitor conversations', color: 'bg-green-50 text-green-600', href: '#' },
-            { icon: Users, label: 'Leads CRM', sub: 'Manage prospect lists', color: 'bg-purple-50 text-purple-600', href: '#' },
-            { icon: BarChart2, label: 'Analytics', sub: 'Conversion & call data', color: 'bg-orange-50 text-orange-600', href: '#' },
+            { icon: Inbox, label: 'Live Inbox', sub: 'Monitor conversations', color: 'bg-green-50 text-green-600', href: '/dashboard/inbox' },
+            { icon: Users, label: 'Leads CRM', sub: 'Manage prospect lists', color: 'bg-purple-50 text-purple-600', href: '/dashboard/leads' },
+            { icon: BarChart2, label: 'Analytics', sub: 'Conversion & call data', color: 'bg-orange-50 text-orange-600', href: '/dashboard/analytics' },
           ].map(q => (
             <div key={q.label} onClick={() => router.push(q.href)} className="bg-white border border-gray-200 p-5 rounded-2xl hover:shadow-md hover:border-gray-300 transition-all cursor-pointer group">
               <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 ${q.color} group-hover:scale-110 transition-transform`}>
@@ -612,7 +611,20 @@ export default function AiSetterSalesEngine() {
                     {/* Launch */}
                     <div className="mt-10 text-center">
                       <button
-                        onClick={() => { localStorage.setItem(SETUP_KEY, 'true'); setIsConfigured(true); }}
+                        onClick={async () => {
+                          try {
+                            const res = await fetch('/api/sales-engine/update', {
+                              method: 'POST',
+                              body: JSON.stringify(formData),
+                              headers: { 'Content-Type': 'application/json' }
+                            });
+                            if (!res.ok) throw new Error(await res.text());
+                            localStorage.setItem(SETUP_KEY, 'true');
+                            setIsConfigured(true);
+                          } catch (err: any) {
+                            alert('Failed to configure Sales Engine: ' + err.message);
+                          }
+                        }}
                         className="px-12 py-4 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-colors shadow-lg active:scale-95 text-base"
                       >
                         Launch Sales Engine →

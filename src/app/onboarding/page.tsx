@@ -36,7 +36,11 @@ export default function EquippingInterface() {
       {/* Sidebar Navigation */}
       <aside className="sidebar">
         <div>
-          <h2 style={{ fontSize: '1.25rem', color: 'var(--text-primary)', marginBottom: '8px' }}>Mantis</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/Azmeth%20AI%20Logo.png" alt="Azmeth AI" style={{ width: 28, height: 28, objectFit: 'contain' }} />
+            <h2 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', margin: 0, fontWeight: 700 }}>Azmeth AI</h2>
+          </div>
           <p style={{ fontSize: '0.85rem' }}>AI Employee Equipping</p>
         </div>
 
@@ -210,7 +214,7 @@ export default function EquippingInterface() {
           {currentStep === 4 && (
             <div>
               <h1 style={{ marginBottom: '16px' }}>Upload Standard Operating Procedures</h1>
-              <p style={{ marginBottom: '24px' }}>Upload your exact company workflows, billing codes, and standard contract templates. Mantis will convert these into its Procedural Memory layer.</p>
+              <p style={{ marginBottom: '24px' }}>Upload your exact company workflows, billing codes, and standard contract templates. The AI agent will convert these into its procedural memory layer.</p>
               
               <div className="upload-area">
                 <div className="upload-icon">
