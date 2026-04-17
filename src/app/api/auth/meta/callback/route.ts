@@ -1,11 +1,10 @@
+import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   const supabase = createServerClient();
-
-export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get("code");
   const state = request.nextUrl.searchParams.get("state"); // "platform:userId"
   const error = request.nextUrl.searchParams.get("error");
@@ -57,7 +56,6 @@ export async function GET(request: NextRequest) {
     ? new Date(Date.now() + longTokenData.expires_in * 1000).toISOString()
     : null;
 
-  const supabase = createServerClient();
   const { error: dbError } = await supabase.from("platform_connections").upsert(
     {
       user_id: userId,
