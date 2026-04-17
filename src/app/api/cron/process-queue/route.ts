@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@/lib/supabase";
 import { processWebhookJob, WebhookQueueRow } from "@/core/agent/engine";
 import { processOutboundJob, OutboundQueueRow } from "@/lib/outbound-jobs";
 
@@ -16,15 +16,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-    
-    if (!supabaseUrl || !supabaseKey) {
-      console.error("Missing Supabase credentials");
-      return NextResponse.json({ error: "Configuration Error" }, { status: 500 });
-    }
+    const supabase = createServerClient();
 
-    const supabase = createClient(supabaseUrl, supabaseKey);
 
     // 1. Atomically claim pending webhook jobs
     const webhookRes = await supabase.rpc('claim_webhook_jobs', { batch_size: 5 });
