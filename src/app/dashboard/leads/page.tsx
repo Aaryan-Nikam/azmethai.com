@@ -3,66 +3,79 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   Search, Plus, Camera, Hash,
-  Mail, Link2, Phone, MoreHorizontal,
-  ArrowUpRight, Star, StarOff, CircleCheck, Clock,
-  Calendar, X, Check, RefreshCw, AlertCircle
+  Mail, Link2, Phone, ArrowUpRight,
+  Star, StarOff, CircleCheck, Clock,
+  Calendar, X, Check, RefreshCw, AlertCircle, MoreHorizontal
 } from 'lucide-react';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-type LeadStatus = 'new' | 'contacted' | 'qualified' | 'meeting_set' | 'disqualified';
-type Channel = 'instagram' | 'whatsapp' | 'email' | 'linkedin' | 'voice';
+type LeadStatus = 'new' | 'contacted' | 'qualified' | 'meeting_set' | 'disqualified' | 'sent' | 'replied' | 'personalise' | 'qualify' | 'scraped';
+type Channel = 'instagram' | 'whatsapp' | 'email' | 'linkedin' | 'voice' | 'direct';
 
-interface Lead {
-  lead_id: string; // The ID
-  system: 'inbound' | 'outbound';
+interface UnifiedLead {
+  id: string;
+  email: string | null;
+  first_name: string | null;
+  last_name: string | null;
+  company: string | null;
+  website: string | null;
+  source: 'inbound' | 'outbound';
   channel: Channel | string;
-  sender_name: string;
-  company_name: string;
-  role_title: string;
-  status: LeadStatus;
-  latest_score: number;
-  last_seen: string;
-  starred: boolean;
-  
-  // Extra inbound
-  last_intent?: string;
-  agent_name?: string;
-  sender_contact?: string;
-  
-  // Extra outbound
-  stage?: string;
-  campaign_id?: string;
-  source?: string;
+  stage: LeadStatus;
+  score: number;
+  created_at: string;
+  campaign_id: string | null;
+  contact_id: string | null;
+  role: string | null;
+  starred?: boolean; // Client-side addition for now
+}
+
+interface SummaryStats {
+  total: number;
+  inbound: number;
+  outbound: number;
+  by_stage: Record<string, number>;
+  avg_score: number;
 }
 
 // ─── Config ────────────────────────────────────────────────────────────────────
 
-const STATUS_MAP: Record<LeadStatus, { label: string; color: string; icon: React.ElementType }> = {
+const STATUS_MAP: Record<string, { label: string; color: string; icon: React.ElementType }> = {
   new:          { label: 'New',         color: 'bg-gray-100 text-gray-600 border-gray-200',      icon: Clock },
   contacted:    { label: 'Active',      color: 'bg-blue-50 text-blue-700 border-blue-200',       icon: ArrowUpRight },
   qualified:    { label: 'Qualified',   color: 'bg-green-50 text-green-700 border-green-200',    icon: CircleCheck },
   meeting_set:  { label: 'Meeting Set', color: 'bg-purple-50 text-purple-700 border-purple-200', icon: Calendar },
   disqualified: { label: "DQ'd",        color: 'bg-red-50 text-red-500 border-red-200',          icon: X },
+  // Outbound stages
+  scraped:      { label: 'Scraped',     color: 'bg-gray-100 text-gray-600 border-gray-200',      icon: Search },
+  qualify:      { label: 'Qualifying',  color: 'bg-blue-50 text-blue-700 border-blue-200',       icon: Clock },
+  personalise:  { label: 'Personalising',color: 'bg-indigo-50 text-indigo-700 border-indigo-200',icon: Star },
+  sent:         { label: 'Sent',        color: 'bg-blue-50 text-blue-700 border-blue-200',       icon: ArrowUpRight },
+  replied:      { label: 'Replied',     color: 'bg-green-50 text-green-700 border-green-200',    icon: Mail },
 };
 
-const CHANNEL_MAP: Record<Channel, { icon: React.ElementType; color: string; label: string }> = {
+const CHANNEL_MAP: Record<string, { icon: React.ElementType; color: string; label: string }> = {
   instagram: { icon: Camera, color: 'text-pink-500',   label: 'Instagram' },
   whatsapp:  { icon: Hash,   color: 'text-green-600',  label: 'WhatsApp' },
   email:     { icon: Mail,   color: 'text-blue-500',   label: 'Email' },
   linkedin:  { icon: Link2,  color: 'text-blue-700',   label: 'LinkedIn' },
   voice:     { icon: Phone,  color: 'text-purple-500', label: 'Voice' },
+  direct:    { icon: Search, color: 'text-gray-500',   label: 'Outbound' },
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
 
-function displayName(lead: Lead): string {
-  if (lead.sender_name?.trim() && lead.sender_name !== 'Anonymous' && lead.sender_name !== 'Unknown') return lead.sender_name;
-  if (lead.sender_contact) return `#${lead.sender_contact.slice(-6)}`;
-  return lead.lead_id.split('_').slice(-1)[0]?.slice(-8) || 'Unknown';
+function displayName(lead: UnifiedLead): string {
+  const name = [lead.first_name, lead.last_name].filter(Boolean).join(' ').trim();
+  if (name && name !== 'Anonymous' && name !== 'Unknown') return name;
+  if (lead.email) return lead.email;
+  if (lead.contact_id) return `#${lead.contact_id.slice(-6)}`;
+  return lead.id.split('_').slice(-1)[0]?.slice(-8) || 'Unknown';
 }
 
 function relativeTime(iso: string): string {
+  if (!iso) return 'Unknown';
   const diff = Date.now() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
   if (m < 1) return 'just now';
@@ -89,78 +102,81 @@ function Skeleton({ className }: { className?: string }) {
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 export default function LeadsCRMPage() {
-  const [leads, setLeads] = useState<Lead[]>([]);
+  const [leads, setLeads] = useState<UnifiedLead[]>([]);
+  const [summary, setSummary] = useState<SummaryStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Filters
   const [search, setSearch] = useState('');
-  const [systemFilter, setSystemFilter] = useState<'all' | 'inbound' | 'outbound'>('all');
-  const [statusFilter, setStatusFilter] = useState<LeadStatus | 'all'>('all');
-  const [channelFilter, setChannelFilter] = useState<Channel | string | 'all'>('all');
+  const [sourceFilter, setSourceFilter] = useState<'all' | 'inbound' | 'outbound'>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [channelFilter, setChannelFilter] = useState<string>('all');
+  
   const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState<'score' | 'recent' | 'name'>('score');
 
   const fetchLeads = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/leads');
+      
+      const params = new URLSearchParams();
+      if (sourceFilter !== 'all') params.set('source', sourceFilter);
+      if (statusFilter !== 'all') params.set('stage', statusFilter);
+      if (channelFilter !== 'all') params.set('channel', channelFilter);
+      if (search.trim()) params.set('search', search.trim());
+      
+      const res = await fetch(`/api/leads/unified?${params}`);
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      setLeads(data.leads as Lead[]);
+      
+      setLeads(data.leads as UnifiedLead[]);
+      setSummary(data.summary as SummaryStats);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load leads');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sourceFilter, statusFilter, channelFilter, search]);
 
-  useEffect(() => { fetchLeads(); }, [fetchLeads]);
+  // Debounced search
+  useEffect(() => {
+    const timer = setTimeout(() => { fetchLeads(); }, 300);
+    return () => clearTimeout(timer);
+  }, [fetchLeads]);
 
-  const patch = async (lead_id: string, updates: Partial<Lead>) => {
-    // Optimistic update
-    setLeads(p => p.map(l => l.lead_id === lead_id ? { ...l, ...updates } : l));
+  const patch = async (id: string, updates: Partial<UnifiedLead>) => {
+    // Optimistic array update
+    setLeads(p => p.map(l => l.id === id ? { ...l, ...updates } : l));
     setActiveLeadId(prev => prev); // keep drawer open
-    await fetch('/api/leads', {
-      method: 'PATCH',
+    
+    const lead = leads.find(l => l.id === id);
+    if (!lead) return;
+
+    // Route patch to correct endpoint based on source
+    const endpoint = lead.source === 'inbound' ? '/api/leads' : `/api/outbound/${updates.stage || 'qualify'}`;
+    const payload = lead.source === 'inbound' 
+      ? JSON.stringify({ lead_id: id, ...updates })
+      : JSON.stringify({ lead_id: id }); // For outbound, we just trigger stage changes for now
+
+    await fetch(endpoint, {
+      method: lead.source === 'inbound' ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ lead_id, system: leads.find(l => l.lead_id === lead_id)?.system, ...updates }),
+      body: payload,
     });
   };
 
-  const filtered = leads
-    .filter(l => {
-      const q = search.toLowerCase();
-      const name = displayName(l).toLowerCase();
-      const leadChannel = l.channel || 'web'; // Safe fallback
-      const matchSearch = name.includes(q) || (l.company_name || '').toLowerCase().includes(q) || leadChannel.includes(q);
-      const matchStatus = statusFilter === 'all' || l.status === statusFilter;
-      const matchSystem = systemFilter === 'all' || l.system === systemFilter;
-      const matchChannel = channelFilter === 'all' || leadChannel === channelFilter;
-      return matchSearch && matchStatus && matchSystem && matchChannel;
-    })
-    .sort((a, b) =>
-      sortBy === 'score' ? (b.latest_score || 0) - (a.latest_score || 0)
-      : sortBy === 'recent' ? new Date(b.last_seen).getTime() - new Date(a.last_seen).getTime()
-      : displayName(a).localeCompare(displayName(b))
-    );
-
-  const activeLead = leads.find(l => l.lead_id === activeLeadId);
-
-  const meetingsBooked = leads.filter(l => l.status === 'meeting_set').length;
-  const avgScore = leads.length > 0 ? Math.round(leads.reduce((s, l) => s + (l.latest_score || 0), 0) / leads.length) : 0;
-  const meetingRate = leads.length > 0 ? Math.round((meetingsBooked / leads.length) * 100) : 0;
+  const activeLead = leads.find(l => l.id === activeLeadId);
 
   return (
     <div className="flex h-full bg-gray-50 font-sans overflow-hidden">
-
       {/* ── MAIN TABLE AREA ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
-
         {/* Header */}
         <div className="bg-white border-b border-gray-200 px-6 py-4 shrink-0">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h1 className="text-xl font-bold text-gray-900">Leads CRM</h1>
-              <p className="text-sm text-gray-500">{filtered.length} leads · {meetingsBooked} meetings booked</p>
+              <h1 className="text-xl font-bold text-gray-900">Unified Pipeline</h1>
+              <p className="text-sm text-gray-500">{summary?.total || 0} total leads · {(summary?.by_stage?.meeting_set || 0)} meetings booked</p>
             </div>
             <div className="flex items-center gap-2">
               <button onClick={fetchLeads} className="p-2 border border-gray-200 rounded-xl hover:bg-gray-50" title="Refresh">
@@ -175,10 +191,10 @@ export default function LeadsCRMPage() {
           {/* Stats */}
           <div className="flex gap-4 mb-4">
             {[
-              { label: 'Total Leads', val: leads.length.toString(), color: 'text-gray-900' },
-              { label: 'Avg. Intent Score', val: avgScore ? `${avgScore}/100` : '—', color: 'text-blue-600' },
-              { label: 'Meeting Rate', val: `${meetingRate}%`, color: 'text-green-600' },
-              { label: 'Disqualified', val: leads.filter(l => l.status === 'disqualified').length.toString(), color: 'text-red-500' },
+              { label: 'Total Leads', val: (summary?.total || 0).toString(), color: 'text-gray-900' },
+              { label: 'Inbound', val: (summary?.inbound || 0).toString(), color: 'text-indigo-600' },
+              { label: 'Outbound', val: (summary?.outbound || 0).toString(), color: 'text-orange-600' },
+              { label: 'Avg. Score', val: summary?.avg_score ? `${summary.avg_score}/100` : '—', color: 'text-blue-600' },
             ].map(pill => (
               <div key={pill.label} className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2">
                 <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">{pill.label}</p>
@@ -192,32 +208,26 @@ export default function LeadsCRMPage() {
             <div className="relative flex-1">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="Search leads by name, company, or channel…"
+                placeholder="Search leads by name, company, or email…"
                 className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 pl-9 pr-4 text-sm focus:outline-none focus:border-gray-400 focus:ring-1 focus:ring-gray-200" />
             </div>
-            <select value={systemFilter} onChange={e => setSystemFilter(e.target.value as 'all' | 'inbound' | 'outbound')}
+            <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value as any)}
               className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-700 focus:outline-none focus:border-gray-400 appearance-none cursor-pointer">
-              <option value="all">All Systems</option>
+              <option value="all">All Sources</option>
               <option value="inbound">Inbound (Chat)</option>
-              <option value="outbound">Outbound (Engine)</option>
+              <option value="outbound">Outbound (Campaigns)</option>
             </select>
-            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as LeadStatus | 'all')}
+            <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
               className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-700 focus:outline-none focus:border-gray-400 appearance-none cursor-pointer">
-              <option value="all">All Statuses</option>
-              {(Object.entries(STATUS_MAP) as [LeadStatus, typeof STATUS_MAP[LeadStatus]][]).map(([k, v]) =>
+              <option value="all">All Stages</option>
+              {(Object.entries(STATUS_MAP) as [string, typeof STATUS_MAP[string]][]).map(([k, v]) =>
                 <option key={k} value={k}>{v.label}</option>)}
             </select>
-            <select value={channelFilter} onChange={e => setChannelFilter(e.target.value as Channel | 'all')}
+            <select value={channelFilter} onChange={e => setChannelFilter(e.target.value)}
               className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-700 focus:outline-none focus:border-gray-400 appearance-none cursor-pointer">
               <option value="all">All Channels</option>
-              {(Object.entries(CHANNEL_MAP) as [Channel, typeof CHANNEL_MAP[Channel]][]).map(([k, v]) =>
+              {(Object.entries(CHANNEL_MAP) as [string, typeof CHANNEL_MAP[string]][]).map(([k, v]) =>
                 <option key={k} value={k}>{v.label}</option>)}
-            </select>
-            <select value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}
-              className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-700 focus:outline-none focus:border-gray-400 appearance-none cursor-pointer">
-              <option value="score">Sort: Intent Score</option>
-              <option value="recent">Sort: Most Recent</option>
-              <option value="name">Sort: Name</option>
             </select>
           </div>
         </div>
@@ -234,12 +244,11 @@ export default function LeadsCRMPage() {
               <tr>
                 <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-6 py-3 w-8" />
                 <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">Lead</th>
-                <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">System</th>
+                <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">Source</th>
                 <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">Channel</th>
-                <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">Status</th>
-                <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">Intent</th>
-                <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">Last Active</th>
-                <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">Agent</th>
+                <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">Stage</th>
+                <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">Intent Score</th>
+                <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3">Added</th>
                 <th className="text-left text-[10px] font-bold text-gray-400 uppercase tracking-widest px-4 py-3" />
               </tr>
             </thead>
@@ -254,19 +263,20 @@ export default function LeadsCRMPage() {
                         <div className="space-y-1.5"><Skeleton className="h-3 w-28" /><Skeleton className="h-2 w-20" /></div>
                       </div>
                     </td>
-                    {Array.from({ length: 5 }).map((_, j) => <td key={j} className="px-4 py-4"><Skeleton className="h-3 w-16" /></td>)}
+                    {Array.from({ length: 4 }).map((_, j) => <td key={j} className="px-4 py-4"><Skeleton className="h-3 w-16" /></td>)}
+                    <td className="px-4 py-4"><Skeleton className="h-3 w-12" /></td>
                     <td className="px-4 py-4" />
                   </tr>
                 ))
-              ) : filtered.map(lead => {
-                const ChannelIcon = CHANNEL_MAP[lead.channel as Channel]?.icon || Mail;
-                const StatusCfg = STATUS_MAP[lead.status] || STATUS_MAP['new'];
+              ) : leads.map(lead => {
+                const ChannelIcon = CHANNEL_MAP[lead.channel]?.icon || Mail;
+                const StatusCfg = STATUS_MAP[lead.stage] || STATUS_MAP['new'];
                 const StatusIcon = StatusCfg.icon;
                 return (
-                  <tr key={lead.lead_id}
-                    onClick={() => setActiveLeadId(activeLeadId === lead.lead_id ? null : lead.lead_id)}
-                    className={`cursor-pointer transition-colors ${activeLeadId === lead.lead_id ? 'bg-blue-50/60' : 'bg-white hover:bg-gray-50/70'}`}>
-                    <td className="px-6 py-3.5" onClick={e => { e.stopPropagation(); patch(lead.lead_id, { starred: !lead.starred }); }}>
+                  <tr key={lead.id}
+                    onClick={() => setActiveLeadId(activeLeadId === lead.id ? null : lead.id)}
+                    className={`cursor-pointer transition-colors ${activeLeadId === lead.id ? 'bg-blue-50/60' : 'bg-white hover:bg-gray-50/70'}`}>
+                    <td className="px-6 py-3.5" onClick={e => { e.stopPropagation(); patch(lead.id, { starred: !lead.starred }); }}>
                       {lead.starred
                         ? <Star size={14} className="text-yellow-400 fill-yellow-400" />
                         : <StarOff size={14} className="text-gray-300 hover:text-gray-400" />}
@@ -278,19 +288,19 @@ export default function LeadsCRMPage() {
                         </div>
                         <div>
                           <p className="text-sm font-semibold text-gray-900">{displayName(lead)}</p>
-                          <p className="text-xs text-gray-400">{lead.role_title ? `${lead.role_title} · ` : ''}{lead.company_name || lead.sender_contact}</p>
+                          <p className="text-xs text-gray-400">{lead.role ? `${lead.role} · ` : ''}{lead.company || lead.contact_id || lead.email}</p>
                         </div>
                       </div>
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-widest ${lead.system === 'inbound' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-orange-50 text-orange-700 border border-orange-200'}`}>
-                        {lead.system}
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-widest ${lead.source === 'inbound' ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-orange-50 text-orange-700 border border-orange-200'}`}>
+                        {lead.source}
                       </span>
                     </td>
                     <td className="px-4 py-3.5">
                       <div className="flex items-center gap-1.5">
-                        <ChannelIcon size={14} className={CHANNEL_MAP[lead.channel as Channel]?.color || 'text-gray-500'} />
-                        <span className="text-[11px] font-bold text-gray-600 capitalize">{CHANNEL_MAP[lead.channel as Channel]?.label || lead.channel}</span>
+                        <ChannelIcon size={14} className={CHANNEL_MAP[lead.channel]?.color || 'text-gray-500'} />
+                        <span className="text-[11px] font-bold text-gray-600 capitalize">{CHANNEL_MAP[lead.channel]?.label || lead.channel}</span>
                       </div>
                     </td>
                     <td className="px-4 py-3.5">
@@ -298,12 +308,9 @@ export default function LeadsCRMPage() {
                         <StatusIcon size={10} /> {StatusCfg.label}
                       </span>
                     </td>
-                    <td className="px-4 py-3.5"><ScoreBadge score={lead.latest_score} /></td>
+                    <td className="px-4 py-3.5"><ScoreBadge score={lead.score} /></td>
                     <td className="px-4 py-3.5">
-                      <p className="text-xs font-medium text-gray-700">{relativeTime(lead.last_seen)}</p>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">{lead.agent_name}</span>
+                      <p className="text-xs font-medium text-gray-700">{relativeTime(lead.created_at)}</p>
                     </td>
                     <td className="px-4 py-3.5">
                       <MoreHorizontal size={15} className="text-gray-400 hover:text-gray-700 cursor-pointer" />
@@ -311,7 +318,7 @@ export default function LeadsCRMPage() {
                   </tr>
                 );
               })}
-              {!loading && filtered.length === 0 && !error && (
+              {!loading && leads.length === 0 && !error && (
                 <tr><td colSpan={8} className="text-center py-16 text-sm text-gray-400">No leads found</td></tr>
               )}
             </tbody>
@@ -326,21 +333,21 @@ export default function LeadsCRMPage() {
             <div className="flex items-start justify-between mb-4">
               <div>
                 <p className="text-base font-bold text-gray-900">{displayName(activeLead)}</p>
-                <p className="text-xs text-gray-400">{activeLead.role_title || 'Unknown role'}</p>
-                <p className="text-xs font-semibold text-gray-600 mt-0.5">{activeLead.company_name || '—'}</p>
+                <p className="text-xs text-gray-400">{activeLead.role || 'Unknown role'}</p>
+                <p className="text-xs font-semibold text-gray-600 mt-0.5">{activeLead.company || '—'}</p>
               </div>
               <button onClick={() => setActiveLeadId(null)} className="p-1.5 hover:bg-gray-100 rounded-lg"><X size={14} className="text-gray-400" /></button>
             </div>
-            <ScoreBadge score={activeLead.latest_score} />
+            <ScoreBadge score={activeLead.score} />
           </div>
 
           <div className="p-5 space-y-3 border-b border-gray-100">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Contact Info</p>
             {[
-              { label: 'Contact ID', val: activeLead.sender_contact || activeLead.lead_id },
+              { label: 'Identifier', val: activeLead.contact_id || activeLead.email || activeLead.id },
+              { label: 'Source', val: activeLead.source === 'inbound' ? 'Inbound (Chat)' : 'Outbound (Campaign)' },
               { label: 'Channel', val: CHANNEL_MAP[activeLead.channel]?.label || activeLead.channel },
-              { label: 'Last Intent', val: activeLead.last_intent || 'Unknown' },
-              { label: 'Last Active', val: relativeTime(activeLead.last_seen) },
+              { label: 'Added', val: new Date(activeLead.created_at).toLocaleDateString() },
             ].map(r => (
               <div key={r.label} className="flex justify-between">
                 <span className="text-xs text-gray-400">{r.label}</span>
@@ -351,12 +358,14 @@ export default function LeadsCRMPage() {
 
           <div className="p-5 space-y-2 border-b border-gray-100">
             <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Pipeline Stage</p>
-            {(Object.entries(STATUS_MAP) as [LeadStatus, typeof STATUS_MAP[LeadStatus]][]).map(([k, v]) => {
+            {(Object.entries(STATUS_MAP) as [string, typeof STATUS_MAP[string]][])
+              .filter(([k]) => activeLead.source === 'outbound' || ['new', 'contacted', 'qualified', 'meeting_set', 'disqualified'].includes(k))
+              .map(([k, v]) => {
               const StatusIcon = v.icon;
-              const isActive = activeLead.status === k;
+              const isActive = activeLead.stage === k;
               return (
                 <div key={k}
-                  onClick={() => { patch(activeLead.lead_id, { status: k }); setActiveLeadId(activeLead.lead_id); }}
+                  onClick={() => { patch(activeLead.id, { stage: k as any }); setActiveLeadId(activeLead.id); }}
                   className={`flex items-center gap-2.5 p-2 rounded-lg transition-colors cursor-pointer hover:bg-gray-50 ${isActive ? 'bg-gray-50 border border-gray-200' : ''}`}>
                   <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${isActive ? 'border-gray-900 bg-gray-900' : 'border-gray-300 hover:border-gray-500'}`}>
                     {isActive && <Check size={9} className="text-white" strokeWidth={3} />}
@@ -370,13 +379,16 @@ export default function LeadsCRMPage() {
 
           <div className="p-5 space-y-2">
             <button className="w-full py-2.5 bg-gray-900 text-white text-xs font-bold rounded-xl hover:bg-gray-800 transition-colors">Book Meeting</button>
-            <a href={`/dashboard/inbox`} className="block w-full py-2.5 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition-colors text-center">
-              View Conversation
-            </a>
-            <button onClick={() => patch(activeLead.lead_id, { status: 'disqualified' })}
-              className="w-full py-2.5 border border-red-100 text-red-500 text-xs font-bold rounded-xl hover:bg-red-50 transition-colors">
-              Disqualify Lead
-            </button>
+            {activeLead.source === 'inbound' && (
+              <a href={`/dashboard/inbox`} className="block w-full py-2.5 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition-colors text-center">
+                View Conversation
+              </a>
+            )}
+            {activeLead.source === 'outbound' && (
+              <a href={`/dashboard/outbound/${activeLead.campaign_id}`} className="block w-full py-2.5 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition-colors text-center">
+                View Campaign
+              </a>
+            )}
           </div>
         </aside>
       )}

@@ -1,447 +1,484 @@
-"use client";
+'use client';
 
-import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import {
-  ReactFlow,
-  MiniMap,
-  Controls,
-  Background,
-  useNodesState,
-  useEdgesState,
-  addEdge,
-  Handle,
-  Position,
-  BaseEdge,
-  getBezierPath,
-  EdgeLabelRenderer,
-  Connection,
-  Edge,
-  useReactFlow
-} from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
+  ReactFlow, Background, Controls, MiniMap,
+  useNodesState, useEdgesState, addEdge,
+  Handle, Position, Connection, Edge,
+  BaseEdge, getBezierPath, EdgeLabelRenderer,
+} from '@xyflow/react';
+import '@xyflow/react/dist/style.css';
 import {
-  Play, Pause, StepForward, RotateCcw, Monitor, ZoomIn, Download, Save, Undo,
-  Webhook, Clock, Bot, Database, Globe, Mail, MessageSquare, Code, Layout, Link,
-  Search, X, Plus, Terminal, Activity, FileText, Send, Network, GitBranch, Repeat,
-  Image as ImageIcon, Layers, Zap, User, Trash, Settings, PanelLeft
-} from "lucide-react";
-import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
+  Bot, Send, Play, Pause, Save, Download, RotateCcw,
+  Terminal, Settings, X, Plus, Trash, PanelLeft,
+  Check, Clock, Zap, Loader2, AlertCircle,
+  Webhook, Database, Mail, Code, GitBranch, Globe,
+  Search, MoreHorizontal, RefreshCw,
+} from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 
-// Node Components
-import { AgentNode } from "@/components/workflow-builder/nodes/AgentNode";
-import { TriggerNode } from "@/components/workflow-builder/nodes/TriggerNode";
-import { ActionNode } from "@/components/workflow-builder/nodes/ActionNode";
-import { CodeNode } from "@/components/workflow-builder/nodes/CodeNode";
-import { VapiNode } from "@/components/workflow-builder/nodes/VapiNode";
-import { ImageGenNode } from "@/components/workflow-builder/nodes/ImageGenNode";
-import { BrowserAgentNode } from "@/components/workflow-builder/nodes/BrowserAgentNode";
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-// State and UI
-import { useWorkflowStore } from "@/lib/workflow/useWorkflowStore";
-import { getAllCatalogNodes, type CatalogNode } from "@/lib/workflow/catalog";
+type NodeState = 'draft' | 'approved' | 'running' | 'done' | 'error';
 
-// Editor
-import { Editor } from "@monaco-editor/react";
+interface AgentMessage { role: 'user' | 'agent'; text: string; ts: number; toolsUsed?: number; }
+interface CanvasNode { id: string; type: string; label: string; config: Record<string, unknown>; state: NodeState; position_x: number; position_y: number; }
+interface CanvasEdge { id: string; source_id: string; target_id: string; }
 
-// --- CUSTOM EDGE ---
-const AzmethEdge = ({
-  id,
-  sourceX,
-  sourceY,
-  targetX,
-  targetY,
-  sourcePosition,
-  targetPosition,
-  style = {},
-  markerEnd,
-  data
-}: any) => {
-  const [edgePath, labelX, labelY] = getBezierPath({
-    sourceX, sourceY, sourcePosition,
-    targetX, targetY, targetPosition,
-  });
+// ─── Node State Colors ─────────────────────────────────────────────────────────
+
+const STATE_STYLES: Record<NodeState, { border: string; glow: string; badge: string; icon: React.ElementType }> = {
+  draft:    { border: 'border-dashed border-amber-300',   glow: '',                              badge: 'bg-amber-50 text-amber-600', icon: Clock },
+  approved: { border: 'border-solid border-emerald-400',  glow: 'shadow-emerald-100 shadow-md',  badge: 'bg-emerald-50 text-emerald-700', icon: Check },
+  running:  { border: 'border-solid border-blue-400',     glow: 'shadow-blue-200 shadow-md',     badge: 'bg-blue-50 text-blue-700', icon: Loader2 },
+  done:     { border: 'border-solid border-gray-300',     glow: '',                              badge: 'bg-gray-50 text-gray-500', icon: Check },
+  error:    { border: 'border-solid border-red-400',      glow: 'shadow-red-100 shadow-md',      badge: 'bg-red-50 text-red-600', icon: AlertCircle },
+};
+
+const NODE_TYPE_ICONS: Record<string, React.ElementType> = {
+  trigger: Zap, action: Play, agent: Bot, code: Code,
+  condition: GitBranch, delay: Clock, email: Mail,
+  webhook: Webhook, database: Database, default: Settings,
+};
+
+// ─── Custom Canvas Node ──────────────────────────────────────────────────────
+
+function SandboxCanvasNode({ data }: { data: CanvasNode & { onApprove: (id: string) => void; onDelete: (id: string) => void } }) {
+  const style = STATE_STYLES[data.state] || STATE_STYLES.draft;
+  const Icon = NODE_TYPE_ICONS[data.type] || NODE_TYPE_ICONS.default;
+  const StateIcon = style.icon;
+  const isDraft = data.state === 'draft';
 
   return (
-    <>
-      <BaseEdge path={edgePath} markerEnd={markerEnd} style={{ ...style, strokeWidth: 3, stroke: '#3b82f6', filter: 'drop-shadow(0 0 8px rgba(59,130,246,0.6))' }} />
-    </>
-  );
-};
-
-const nodeTypes = {
-  agent: AgentNode,
-  trigger: TriggerNode,
-  action: ActionNode,
-  code: CodeNode,
-  vapi: VapiNode,
-  image: ImageGenNode,
-  browser: BrowserAgentNode
-};
-
-const edgeTypes = {
-  azmeth: AzmethEdge
-};
-
-export default function VapiCloneCanvas() {
-  const { 
-    nodes, edges, selectedNodeId, workflowName, logs,
-    onNodesChange, onEdgesChange, onConnect,
-    setNodes, setEdges, addNode, updateNodeData, setSelectedNodeId, setWorkflowName, addLog
-  } = useWorkflowStore();
-
-  const [catalogNodes, setCatalogNodes] = useState<CatalogNode[]>([]);
-  const [catalogSearch, setCatalogSearch] = useState("");
-  const [logExpanded, setLogExpanded] = useState(false);
-  const [leftPinned, setLeftPinned] = useState(false);
-  const [isHoveringLeft, setIsHoveringLeft] = useState(false);
-
-  useEffect(() => {
-    getAllCatalogNodes().then(setCatalogNodes);
-  }, []);
-
-  const onDragStart = (event: any, nodeData: CatalogNode) => {
-    event.dataTransfer.setData('application/reactflow', JSON.stringify(nodeData));
-    event.dataTransfer.effectAllowed = 'move';
-  };
-
-  const handleDragOver = useCallback((event: any) => {
-    event.preventDefault();
-    event.dataTransfer.dropEffect = 'move';
-  }, []);
-
-  const handleDrop = useCallback(
-    (event: any) => {
-      event.preventDefault();
-      const nodeDataStr = event.dataTransfer.getData('application/reactflow');
-      if (!nodeDataStr) return;
-
-      const nodeData: CatalogNode = JSON.parse(nodeDataStr);
-      let type = 'action';
-      if (nodeData.id === 'code-exec') type = 'code';
-      if (nodeData.id === 'vapi-call') type = 'vapi';
-      if (nodeData.id === 'image-gen') type = 'image';
-      if (nodeData.id === 'browser-agent') type = 'browser';
-      if (nodeData.category === 'AGENT TRIGGERS') type = 'trigger';
-
-      // Very simple dropping logic (would normally translate coords via reactFlowInstance)
-      const newNodeId = `${nodeData.id}_${Date.now()}`;
-      addNode({
-        id: newNodeId,
-        type,
-        position: { x: event.clientX - 300, y: event.clientY - 150 }, // Approximation
-        data: { label: nodeData.label, status: 'Idle', config: {} }
-      });
-      addLog(`[SYSTEM] Node ${nodeData.label} added to canvas.`);
-      setSelectedNodeId(newNodeId);
-    },
-    [addNode, addLog, setSelectedNodeId]
-  );
-
-  const selectedNode = useMemo(() => nodes.find(n => n.id === selectedNodeId), [nodes, selectedNodeId]);
-
-  // Group catalog nodes
-  const categories = ["AGENT TRIGGERS", "AGENT LOGIC", "AGENT CAPABILITIES", "AGENT OUTPUT"];
-
-  return (
-    <div className="flex flex-col w-full h-[calc(100vh-64px)] bg-[var(--bg-root)] text-[var(--text-main)] font-sans overflow-hidden">
+    <div className={`relative bg-white border-2 ${style.border} ${style.glow} rounded-2xl w-[200px] overflow-hidden transition-all`}>
+      <Handle type="target" position={Position.Left} className="!w-2.5 !h-2.5 !bg-gray-400 !border-white !border-2" />
       
-      {/* TOOLBAR (Top) */}
-      <div className="h-14 bg-[var(--bg-surface)] border-b border-[var(--border-subtle)] flex items-center justify-between px-4 z-50">
-        <div className="flex items-center gap-6">
-           <input 
-             value={workflowName}
-             onChange={(e) => setWorkflowName(e.target.value)}
-             className="bg-transparent border-none outline-none font-bold text-[var(--text-main)] text-md w-64 hover:bg-[var(--bg-root)] px-2 py-1 rounded"
-           />
-           <div className="flex items-center gap-1 border-l border-[var(--border-subtle)] pl-4">
-             <button className="p-2 hover:bg-[var(--bg-root)] rounded-md text-green-600" title="Run Flow"><Play size={18} fill="currentColor" /></button>
-             <button className="p-2 hover:bg-[var(--bg-root)] rounded-md text-yellow-600" title="Pause"><Pause size={18} fill="currentColor" /></button>
-             <button className="p-2 hover:bg-[var(--bg-root)] rounded-md text-blue-600" title="Step"><StepForward size={18} /></button>
-             <button className="p-2 hover:bg-[var(--bg-root)] rounded-md text-[var(--text-muted)]" title="Reset"><RotateCcw size={18} /></button>
-           </div>
-           <div className="flex items-center gap-2 border-l border-[var(--border-subtle)] pl-4">
-             <select className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-md px-2 py-1 text-xs text-[var(--text-main)]">
-                <option>Env: Sandbox</option>
-                <option>Env: Prod</option>
-             </select>
-             <select className="bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-md px-2 py-1 text-xs text-[var(--text-main)]">
-                <option>Zoom: Fit</option>
-                <option>100%</option>
-                <option>200%</option>
-             </select>
-           </div>
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-2.5 bg-gray-50 border-b border-gray-100">
+        <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${isDraft ? 'bg-amber-50' : 'bg-gray-900'}`}>
+          <Icon size={13} className={isDraft ? 'text-amber-600' : 'text-white'} />
         </div>
-        <div className="flex items-center gap-2">
-           <button className="flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--bg-root)] border border-transparent rounded-md text-xs font-bold text-[var(--text-muted)] transition-colors">
-              <Undo size={14} /> Undo
-           </button>
-           <button className="flex items-center gap-2 px-3 py-1.5 hover:bg-[var(--bg-root)] border border-transparent rounded-md text-xs font-bold text-[var(--text-muted)] transition-colors">
-              <Download size={14} /> Export JSON
-           </button>
-           <button className="flex items-center gap-2 px-4 py-1.5 bg-[var(--accent-main)] hover:opacity-90 rounded-md text-xs font-bold text-white shadow-sm transition-opacity">
-              <Save size={14} /> Save
-           </button>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold text-gray-900 truncate">{data.label}</p>
+          <p className="text-[9px] text-gray-400 uppercase tracking-wider">{data.type}</p>
         </div>
       </div>
 
-      {/* MAIN 3-PANEL LAYOUT */}
-      <div className="flex flex-1 overflow-hidden relative">
-        
-        {/* LEFT PANEL: Node Library (Button Expandable) */}
-        <motion.div 
-           initial={false}
-           animate={{ width: leftPinned ? 280 : 64 }}
-           className="relative bg-[var(--bg-surface)] border-r border-[var(--border-subtle)] flex flex-col z-30 overflow-hidden shadow-sm shrink-0"
-        >
-           <div className={`p-4 border-b border-[var(--border-subtle)] bg-[var(--bg-root)]/50 flex flex-row items-center transition-all ${leftPinned ? 'justify-between' : 'justify-center'}`}>
-             {leftPinned && (
-               <div className="relative flex-1 mr-2 opacity-100 transition-opacity">
-                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
-                 <input 
-                   type="text" 
-                   placeholder="Search..." 
-                   value={catalogSearch}
-                   onChange={e => setCatalogSearch(e.target.value)}
-                   className="w-full bg-[var(--bg-surface)] border border-[var(--border-subtle)] rounded-md pl-9 pr-3 py-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--accent-main)] focus:ring-1 focus:ring-[var(--accent-main)] transition-colors shadow-sm"
-                 />
-               </div>
-             )}
-             <button onClick={() => setLeftPinned(!leftPinned)} className="p-1.5 text-[var(--text-muted)] hover:text-[var(--text-main)] hover:bg-gray-100 rounded transition-colors shrink-0" title={leftPinned ? "Collapse Library" : "Expand Library"}>
-                <PanelLeft size={18} />
-             </button>
-           </div>
-           
-           <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar py-2">
-             {categories.map(category => (
-               <div key={category} className="mb-4">
-                 <motion.h4 
-                    initial={false}
-                    animate={{ opacity: leftPinned ? 1 : 0, height: leftPinned ? 'auto' : 0, marginBottom: leftPinned ? 8 : 0 }}
-                    className="text-[10px] font-bold text-[var(--text-muted)] px-4 tracking-widest uppercase overflow-hidden whitespace-nowrap"
-                 >
-                    {category}
-                 </motion.h4>
-                 <div className="space-y-1">
-                   {catalogNodes.filter(n => n.category === category && n.label.toLowerCase().includes(catalogSearch.toLowerCase())).map(node => (
-                     <div 
-                       key={node.id} 
-                       draggable 
-                       onDragStart={(e) => onDragStart(e, node)}
-                       className={`flex items-center p-2 hover:bg-[var(--bg-root)] rounded-lg cursor-grab active:cursor-grabbing group transition-all border border-transparent hover:border-[var(--border-subtle)] overflow-hidden ${leftPinned ? 'gap-3 mx-2' : 'justify-center mx-2 h-[40px]'}`}
-                       title={!leftPinned ? node.label : undefined}
-                     >
-                        <div 
-                          className="w-8 h-8 rounded-md flex items-center justify-center border shadow-sm transition-colors shrink-0"
-                          style={{ 
-                            backgroundColor: node.color ? `rgba(var(--${node.color}-rgb), 0.1)` : 'var(--bg-root)',
-                            borderColor: node.color ? `rgba(var(--${node.color}-rgb), 0.2)` : 'var(--border-subtle)',
-                            color: node.color ? `var(--${node.color}-main)` : 'var(--text-muted)'
-                          }}
-                        >
-                           {React.createElement(node.icon as any, { size: 16 })}
-                        </div>
-                        <motion.div 
-                          initial={false}
-                          animate={{ opacity: leftPinned ? 1 : 0, width: leftPinned ? 'auto' : 0 }}
-                          className="flex flex-col whitespace-nowrap overflow-hidden"
-                        >
-                          <p className="text-[11px] font-bold text-[var(--text-main)] truncate">{node.label}</p>
-                          <p className="text-[9px] text-[var(--text-muted)] truncate mt-0.5">{node.desc}</p>
-                        </motion.div>
-                     </div>
-                   ))}
-                 </div>
-               </div>
-             ))}
-           </div>
-        </motion.div>
+      {/* State badge + actions */}
+      <div className="px-3 py-2 flex items-center justify-between">
+        <span className={`flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full ${style.badge}`}>
+          <StateIcon size={8} className={data.state === 'running' ? 'animate-spin' : ''} />
+          {data.state.toUpperCase()}
+        </span>
 
-        {/* CENTER PANEL: Canvas (60%) */}
-        <div className="flex-1 relative bg-[var(--bg-root)]">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            onInit={() => {}}
-            onDrop={handleDrop}
-            onDragOver={handleDragOver}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-            onPaneClick={() => setSelectedNodeId(null)}
-            fitView
-            fitViewOptions={{ maxZoom: 1, padding: 0.5 }}
-            colorMode="light"
-            proOptions={{ hideAttribution: true }}
+        {isDraft && (
+          <button
+            onClick={() => data.onApprove(data.id)}
+            className="text-[9px] font-bold px-2 py-0.5 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 transition-colors"
           >
-            <Background color="#cbd5e1" gap={24} size={1} />
-            <Controls className="!bg-[var(--bg-surface)] !border-[var(--border-subtle)] !fill-[var(--text-muted)] [&_path]:!fill-[var(--text-muted)] shadow-md" style={{ marginBottom: logExpanded ? '200px' : '40px' }} />
-            <MiniMap 
-              className="!bg-[var(--bg-surface)] !border-[var(--border-subtle)] !rounded-lg overflow-hidden shadow-sm" 
-              maskColor="var(--bg-root)"
-              style={{ bottom: logExpanded ? '190px' : '30px' }}
-              zoomable pannable 
-            />
-          </ReactFlow>
+            Approve
+          </button>
+        )}
+      </div>
 
-          {/* BOTTOM LOG TERMINAL */}
-          <div className="absolute bottom-0 left-0 right-0 z-50">
-            <div className="flex items-center justify-between px-4 py-2 bg-[var(--bg-surface)] border-y border-[var(--border-subtle)] text-xs font-mono">
-               <div className="flex items-center gap-2 text-[var(--text-muted)] font-bold">
-                 <Terminal size={14} /> Execution Log
-               </div>
-               <button onClick={() => setLogExpanded(!logExpanded)} className="text-[var(--text-muted)] hover:text-[var(--text-main)] w-6 h-6 flex justify-center items-center rounded hover:bg-[var(--bg-root)]">
-                 {logExpanded ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-               </button>
-            </div>
-            {logExpanded && (
-              <div className="h-48 bg-white p-4 overflow-y-auto font-mono text-[12px] leading-relaxed relative">
-                <div className="absolute top-0 left-0 bottom-0 w-8 bg-gray-50 border-r border-gray-100 flex flex-col items-center py-4 text-[10px] text-gray-400 select-none">
-                  {logs.map((_, i) => <span key={i}>{i+1}</span>)}
-                </div>
-                <div className="pl-6">
-                  {logs.map((log, i) => (
-                    <div key={i} className={`mb-1 ${log.includes('ERROR') ? 'text-red-500 font-bold' : log.includes('SYSTEM') ? 'text-[var(--accent-main)] font-semibold' : 'text-[var(--text-main)]'}`}>
-                      {log}
-                    </div>
-                  ))}
-                  {logs.length === 0 && <div className="text-[var(--text-muted)] italic">Waiting for execution...</div>}
-                </div>
-              </div>
-            )}
-          </div>
+      {/* Draft overlay prompt */}
+      {isDraft && (
+        <div className="absolute inset-0 bg-amber-50/30 pointer-events-none rounded-2xl" />
+      )}
+
+      <Handle type="source" position={Position.Right} className="!w-2.5 !h-2.5 !bg-gray-400 !border-white !border-2" />
+    </div>
+  );
+}
+
+// ─── Custom Edge ──────────────────────────────────────────────────────────────
+
+function AzmethEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd }: any) {
+  const [path] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  return <BaseEdge path={path} markerEnd={markerEnd} style={{ strokeWidth: 2, stroke: '#6366f1', strokeOpacity: 0.7 }} />;
+}
+
+const nodeTypes = { sandbox: SandboxCanvasNode };
+const edgeTypes = { azmeth: AzmethEdge };
+
+// ─── Chat Message ─────────────────────────────────────────────────────────────
+
+function ChatBubble({ msg }: { msg: AgentMessage }) {
+  const isAgent = msg.role === 'agent';
+  return (
+    <div className={`flex ${isAgent ? 'justify-start' : 'justify-end'} mb-3`}>
+      {isAgent && (
+        <div className="w-7 h-7 rounded-xl bg-gray-900 flex items-center justify-center shrink-0 mr-2 mt-0.5">
+          <Bot size={13} className="text-white" />
         </div>
-
-        {/* RIGHT PANEL: Inspector (Floating & Sliding) */}
-        <AnimatePresence>
-          {selectedNode && (
-            <motion.div 
-               initial={{ x: 320, opacity: 0 }}
-               animate={{ x: 0, opacity: 1 }}
-               exit={{ x: 320, opacity: 0 }}
-               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-               className="absolute right-0 top-0 bottom-0 w-[320px] bg-[var(--bg-surface)] border-l border-[var(--border-subtle)] flex flex-col z-40 shadow-2xl"
-            >
-              {/* Inspector Header */}
-              <div className="p-5 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)] shadow-sm">
-                 <div className="flex justify-between items-start mb-3">
-                   <h3 className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest flex items-center gap-1.5">
-                     <Settings size={12} /> NODE PROPERTIES
-                   </h3>
-                   <button onClick={() => setSelectedNodeId(null)} className="text-[var(--text-muted)] hover:text-red-500 w-6 h-6 flex justify-center items-center rounded hover:bg-red-50 transition-colors" title="Close"><X size={16} /></button>
-                 </div>
-                 <input 
-                   type="text" 
-                   value={selectedNode.data.label as string} 
-                   onChange={e => updateNodeData(selectedNode.id, { label: e.target.value })}
-                   className="bg-transparent text-xl font-black text-[var(--text-main)] border-b border-transparent hover:border-[var(--border-subtle)] focus:border-[var(--accent-main)] outline-none w-full pb-1 transition-colors"
-                 />
-                 <p className="text-xs text-[var(--text-muted)] mt-1 font-medium">Type: <span className="text-[var(--text-main)] bg-[var(--bg-root)] px-1.5 py-0.5 rounded ml-1">{selectedNode.type}</span></p>
-              </div>
-
-              {/* Config Area */}
-              <div className="flex-1 overflow-y-auto custom-scrollbar p-0 flex flex-col">
-                 <div className="p-5 border-b border-[var(--border-subtle)]">
-                    <h4 className="text-[10px] font-bold text-[var(--text-main)] mb-4 uppercase tracking-widest">Configuration</h4>
-                    
-                    {/* Dynamic fields based on node type */}
-                    <div className="space-y-4">
-                      {selectedNode.type === 'code' && (
-                         <>
-                           <div>
-                             <label className="text-[11px] font-bold text-[var(--text-muted)] mb-1.5 block">Language</label>
-                             <select 
-                               value={selectedNode.data.language as string || 'Python'} 
-                               onChange={e => updateNodeData(selectedNode.id, { language: e.target.value })}
-                               className="w-full bg-[var(--bg-root)] border border-[var(--border-subtle)] rounded-lg p-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--accent-main)] focus:ring-1"
-                             >
-                               <option>Python</option><option>JS Shell</option>
-                             </select>
-                           </div>
-                           <div>
-                             <label className="text-[11px] font-bold text-[var(--text-muted)] mb-1.5 block">Timeout</label>
-                             <select 
-                               value={selectedNode.data.timeout as string || '30s'} 
-                               onChange={e => updateNodeData(selectedNode.id, { timeout: e.target.value })}
-                               className="w-full bg-[var(--bg-root)] border border-[var(--border-subtle)] rounded-lg p-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--accent-main)] focus:ring-1"
-                             >
-                               <option>10s</option><option>30s</option><option>60s</option>
-                             </select>
-                           </div>
-                         </>
-                      )}
-
-                      {selectedNode.type === 'vapi' && (
-                        <>
-                          <div>
-                            <label className="text-[11px] font-bold text-[var(--text-muted)] mb-1.5 block">Assistant ID</label>
-                            <input type="text" className="w-full bg-[var(--bg-root)] border border-[var(--border-subtle)] rounded-lg p-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--accent-main)] focus:ring-1" placeholder="asst_..." />
-                          </div>
-                          <div>
-                            <label className="text-[11px] font-bold text-[var(--text-muted)] mb-1.5 block">Model</label>
-                            <select className="w-full bg-[var(--bg-root)] border border-[var(--border-subtle)] rounded-lg p-2 text-xs text-[var(--text-main)] outline-none focus:border-[var(--accent-main)] focus:ring-1">
-                               <option>GPT-4o</option><option>Claude 3.5</option>
-                            </select>
-                          </div>
-                        </>
-                      )}
-                    </div>
-                 </div>
-
-                 {/* Editor Section for Code Nodes */}
-                 {selectedNode.type === 'code' && (
-                   <div className="flex flex-col flex-1 border-b border-[var(--border-subtle)] min-h-[300px]">
-                     <div className="px-4 py-2 bg-[var(--bg-root)] border-b border-[var(--border-subtle)] flex justify-between items-center text-xs shadow-inner">
-                       <span className="font-mono text-[var(--text-muted)] font-bold">script.{selectedNode.data.language === 'Python' ? 'py' : 'js'}</span>
-                     </div>
-                     <div className="flex-1 bg-white">
-                       <Editor
-                         height="100%"
-                         defaultLanguage={selectedNode.data.language === 'Python' ? 'python' : 'javascript'}
-                         theme="light"
-                         value={selectedNode.data.code as string || "# Agent code here\nreturn {\"status\": \"done\"}"}
-                         onChange={(val) => updateNodeData(selectedNode.id, { code: val })}
-                         options={{ minimap: { enabled: false }, fontSize: 13, lineNumbers: 'off', padding: { top: 16 } }}
-                       />
-                     </div>
-                   </div>
-                 )}
-
-                 {/* I/O Mapping */}
-                 <div className="p-5 border-b border-[var(--border-subtle)] bg-[var(--bg-surface)]">
-                    <h4 className="text-[10px] font-bold text-[var(--text-main)] mb-3 uppercase tracking-widest">Inputs / Outputs</h4>
-                    <div className="space-y-2 font-mono text-xs">
-                       <div className="bg-[var(--bg-root)] p-2.5 rounded-lg border border-[var(--border-subtle)] flex justify-between shadow-sm">
-                          <span className="text-[var(--text-muted)]">Input: <span className="text-[var(--text-main)] font-bold">prompt</span></span>
-                          <span className="text-indigo-500 font-bold bg-indigo-50 px-1.5 rounded">[text]</span>
-                       </div>
-                       <div className="bg-[var(--bg-root)] p-2.5 rounded-lg border border-[var(--border-subtle)] flex justify-between shadow-sm">
-                          <span className="text-[var(--text-muted)]">Output: <span className="text-[var(--text-main)] font-bold">result</span></span>
-                          <span className="text-emerald-600 font-bold bg-emerald-50 px-1.5 rounded">[json]</span>
-                       </div>
-                    </div>
-                 </div>
-              </div>
-
-              {/* Test & Debug Actions */}
-              <div className="p-4 bg-[var(--bg-surface)] mt-auto flex gap-2">
-                 <button className="flex-1 flex items-center justify-center gap-2 bg-[var(--accent-main)] hover:opacity-90 text-white rounded-lg py-3 text-xs font-bold transition-all shadow-md active:scale-95">
-                    <Play size={14} fill="currentColor" /> Run Sequence
-                 </button>
-                 <button className="px-4 bg-red-50 text-red-500 border border-red-100 hover:bg-red-500 hover:text-white rounded-lg transition-colors shadow-sm" title="Delete">
-                    <Trash size={16} />
-                 </button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+      )}
+      <div className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed
+        ${isAgent
+          ? 'bg-white border border-gray-200 text-gray-800 rounded-tl-sm shadow-sm'
+          : 'bg-gray-900 text-white rounded-tr-sm'
+        }`}>
+        <p className="whitespace-pre-wrap">{msg.text}</p>
+        {msg.toolsUsed ? (
+          <p className="text-[9px] mt-1.5 opacity-50">{msg.toolsUsed} tool{msg.toolsUsed !== 1 ? 's' : ''} used</p>
+        ) : null}
       </div>
     </div>
   );
 }
 
-const ChevronDown = ({ size }: { size: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>;
-const ChevronUp = ({ size }: { size: number }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15"/></svg>;
+// ─── Page ─────────────────────────────────────────────────────────────────────
+
+export default function SandboxPage() {
+  const workflowId = 'default-sandbox';
+
+  // ── Agent Chat State ────────────────────────────────────────────────────────
+  const [messages, setMessages] = useState<AgentMessage[]>([
+    { role: 'agent', text: 'I\'m your workflow co-pilot. Tell me what you want to build and I\'ll construct it on the canvas in real time.', ts: Date.now() },
+  ]);
+  const [input, setInput] = useState('');
+  const [thinking, setThinking] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // ── Canvas State ─────────────────────────────────────────────────────────────
+  const [canvasNodes, setCanvasNodes] = useState<CanvasNode[]>([]);
+  const [canvasEdges, setCanvasEdges] = useState<CanvasEdge[]>([]);
+  const [rfNodes, setRFNodes, onNodesChange] = useNodesState([]);
+  const [rfEdges, setRFEdges, onEdgesChange] = useEdgesState([]);
+
+  // ── Workflow name ─────────────────────────────────────────────────────────────
+  const [workflowName, setWorkflowName] = useState('Untitled Workflow');
+  const [saving, setSaving] = useState(false);
+
+  // ── Load workflow + subscribe to Realtime ──────────────────────────────────
+  useEffect(() => {
+    // Load existing nodes/edges
+    const loadCanvas = async () => {
+      const [{ data: nodes }, { data: edges }] = await Promise.all([
+        supabase.from('workflow_nodes').select('*').eq('workflow_id', workflowId),
+        supabase.from('workflow_edges').select('*').eq('workflow_id', workflowId),
+      ]);
+      if (nodes) applyNodes(nodes as CanvasNode[]);
+      if (edges) applyEdges(edges as CanvasEdge[]);
+    };
+    loadCanvas();
+
+    // Realtime subscription → canvas updates when agent creates nodes
+    const channel = supabase
+      .channel(`canvas:${workflowId}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'workflow_nodes',
+        filter: `workflow_id=eq.${workflowId}`,
+      }, (payload) => {
+        if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+          setCanvasNodes(prev => {
+            const exists = prev.find(n => n.id === (payload.new as CanvasNode).id);
+            const updated = exists
+              ? prev.map(n => n.id === (payload.new as CanvasNode).id ? payload.new as CanvasNode : n)
+              : [...prev, payload.new as CanvasNode];
+            applyNodes(updated);
+            return updated;
+          });
+          toast.success(`Node "${(payload.new as CanvasNode).label}" ${payload.eventType === 'INSERT' ? 'added' : 'updated'} on canvas`);
+        }
+        if (payload.eventType === 'DELETE') {
+          setCanvasNodes(prev => {
+            const updated = prev.filter(n => n.id !== (payload.old as { id: string }).id);
+            applyNodes(updated);
+            return updated;
+          });
+        }
+      })
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'workflow_edges',
+        filter: `workflow_id=eq.${workflowId}`,
+      }, (payload) => {
+        setCanvasEdges(prev => {
+          const updated = [...prev, payload.new as CanvasEdge];
+          applyEdges(updated);
+          return updated;
+        });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [workflowId]);
+
+  // ── Convert DB nodes → ReactFlow nodes ───────────────────────────────────────
+  const applyNodes = useCallback((nodes: CanvasNode[]) => {
+    setRFNodes(nodes.map(n => ({
+      id: n.id,
+      type: 'sandbox',
+      position: { x: n.position_x, y: n.position_y },
+      data: {
+        ...n,
+        onApprove: (nodeId: string) => approveNode(nodeId),
+        onDelete: (nodeId: string) => deleteNode(nodeId),
+      },
+    })));
+  }, []);
+
+  const applyEdges = useCallback((edges: CanvasEdge[]) => {
+    setRFEdges(edges.map(e => ({
+      id: e.id,
+      source: e.source_id,
+      target: e.target_id,
+      type: 'azmeth',
+    })));
+  }, []);
+
+  // Auto-scroll chat
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // ── Node actions ──────────────────────────────────────────────────────────────
+  const approveNode = useCallback(async (nodeId: string) => {
+    await supabase.from('workflow_nodes').update({ state: 'approved' }).eq('id', nodeId);
+    toast.success('Node approved');
+  }, []);
+
+  const deleteNode = useCallback(async (nodeId: string) => {
+    await supabase.from('workflow_nodes').delete().eq('id', nodeId);
+  }, []);
+
+  const approveAll = useCallback(async () => {
+    const draftIds = canvasNodes.filter(n => n.state === 'draft').map(n => n.id);
+    if (!draftIds.length) return;
+    await supabase.from('workflow_nodes').update({ state: 'approved' }).in('id', draftIds);
+    toast.success(`${draftIds.length} nodes approved`);
+  }, [canvasNodes]);
+
+  // ── Save workflow ─────────────────────────────────────────────────────────────
+  const saveWorkflow = async () => {
+    setSaving(true);
+    try {
+      await fetch(`/api/workflows/${workflowId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: workflowName, data: { nodes: canvasNodes, edges: canvasEdges } }),
+      });
+      toast.success('Workflow saved');
+    } catch {
+      toast.error('Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ── Send message to agent ─────────────────────────────────────────────────────
+  const sendMessage = useCallback(async () => {
+    if (!input.trim() || thinking) return;
+    const userMsg = input.trim();
+    setInput('');
+    setMessages(p => [...p, { role: 'user', text: userMsg, ts: Date.now() }]);
+    setThinking(true);
+
+    // Inject sandbox context into the message so agent knows the workflow_id
+    const contextualMessage = `[Sandbox context: workflow_id=${workflowId}]\n${userMsg}`;
+
+    try {
+      const res = await fetch('/api/agent', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            ...messages.map(m => ({ role: m.role, text: m.text })),
+            { role: 'user', text: contextualMessage },
+          ],
+        }),
+      });
+      const data = await res.json();
+      setMessages(p => [...p, {
+        role: 'agent',
+        text: data.text || data.error || 'Something went wrong.',
+        ts: Date.now(),
+        toolsUsed: data.iterations ? data.iterations - 1 : 0,
+      }]);
+    } catch {
+      setMessages(p => [...p, { role: 'agent', text: 'Connection error. Please try again.', ts: Date.now() }]);
+    } finally {
+      setThinking(false);
+    }
+  }, [input, thinking, messages, workflowId]);
+
+  const draftCount = canvasNodes.filter(n => n.state === 'draft').length;
+
+  return (
+    <div className="h-[calc(100vh-64px)] flex flex-col bg-[#f7f8fa] font-sans overflow-hidden">
+      {/* Toolbar */}
+      <div className="h-12 bg-white border-b border-gray-200 flex items-center justify-between px-4 shrink-0 z-50">
+        <div className="flex items-center gap-3">
+          <input
+            value={workflowName}
+            onChange={e => setWorkflowName(e.target.value)}
+            className="font-bold text-sm text-gray-900 bg-transparent border-none outline-none w-48 hover:bg-gray-50 px-2 py-1 rounded-lg"
+          />
+          {draftCount > 0 && (
+            <button
+              onClick={approveAll}
+              className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-100 transition-colors"
+            >
+              <Check size={12} /> Approve All ({draftCount})
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={saveWorkflow}
+            disabled={saving}
+            className="flex items-center gap-1.5 text-xs font-bold px-4 py-1.5 bg-gray-900 text-white rounded-xl hover:bg-black transition-colors disabled:opacity-50"
+          >
+            {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+            Save
+          </button>
+        </div>
+      </div>
+
+      {/* Main split layout */}
+      <PanelGroup direction="horizontal" className="flex-1 overflow-hidden">
+        
+        {/* Left: Agent Chat */}
+        <Panel defaultSize={32} minSize={25} maxSize={50}>
+          <div className="flex flex-col h-full bg-white border-r border-gray-200">
+            {/* Chat header */}
+            <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2.5 shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-gray-900 flex items-center justify-center">
+                <Bot size={14} className="text-white" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-gray-900">Azmeth Agent</p>
+                <p className="text-[10px] text-emerald-600 font-semibold">● Live — watching canvas</p>
+              </div>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              {messages.map((msg, i) => (
+                <ChatBubble key={i} msg={msg} />
+              ))}
+              {thinking && (
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-7 h-7 rounded-xl bg-gray-900 flex items-center justify-center shrink-0">
+                    <Bot size={13} className="text-white" />
+                  </div>
+                  <div className="bg-white border border-gray-200 rounded-2xl rounded-tl-sm px-3.5 py-2.5 shadow-sm">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <div className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <div className="w-1.5 h-1.5 rounded-full bg-gray-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
+
+            {/* Suggested prompts (shown when chat is empty-ish) */}
+            {messages.length <= 1 && (
+              <div className="px-4 pb-3 grid grid-cols-1 gap-2">
+                {[
+                  'Build a lead qualification workflow',
+                  'Create a welcome sequence for new Instagram leads',
+                  'Add a condition node to filter by score',
+                ].map(prompt => (
+                  <button
+                    key={prompt}
+                    onClick={() => setInput(prompt)}
+                    className="text-left text-xs text-gray-500 px-3 py-2 bg-gray-50 border border-gray-200 rounded-xl hover:bg-gray-100 hover:text-gray-700 transition-colors"
+                  >
+                    {prompt}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Input */}
+            <div className="px-4 pb-4 shrink-0">
+              <div className="flex items-end gap-2 bg-gray-50 border border-gray-200 rounded-2xl px-3.5 py-2.5 focus-within:border-gray-400 focus-within:bg-white transition-all">
+                <textarea
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
+                  placeholder="Ask anything or give a build instruction…"
+                  rows={1}
+                  className="flex-1 bg-transparent text-sm text-gray-800 placeholder:text-gray-400 outline-none resize-none leading-relaxed"
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={!input.trim() || thinking}
+                  className="w-8 h-8 bg-gray-900 rounded-xl flex items-center justify-center shrink-0 hover:bg-black transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {thinking ? <Loader2 size={14} className="text-white animate-spin" /> : <Send size={14} className="text-white" />}
+                </button>
+              </div>
+            </div>
+          </div>
+        </Panel>
+
+        <PanelResizeHandle className="w-1.5 bg-gray-200 hover:bg-blue-400 transition-colors cursor-col-resize" />
+
+        {/* Right: Canvas */}
+        <Panel defaultSize={68} minSize={40}>
+          <div className="h-full relative bg-[#f7f8fa]">
+            <ReactFlow
+              nodes={rfNodes}
+              edges={rfEdges}
+              onNodesChange={onNodesChange}
+              onEdgesChange={onEdgesChange}
+              onConnect={(params: Connection) => {
+                setRFEdges(eds => addEdge({ ...params, type: 'azmeth' }, eds));
+              }}
+              nodeTypes={nodeTypes}
+              edgeTypes={edgeTypes}
+              fitView
+              fitViewOptions={{ maxZoom: 1, padding: 0.3 }}
+              proOptions={{ hideAttribution: true }}
+              colorMode="light"
+            >
+              <Background color="#d1d5db" gap={20} size={1} />
+              <Controls className="!bg-white !border-gray-200 shadow-sm" />
+              <MiniMap
+                className="!bg-white !border-gray-200 !rounded-xl shadow-sm"
+                maskColor="rgba(0,0,0,0.05)"
+                zoomable
+                pannable
+              />
+            </ReactFlow>
+
+            {/* Empty state overlay */}
+            {rfNodes.length === 0 && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <div className="text-center">
+                  <div className="w-14 h-14 bg-white border border-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-sm">
+                    <Zap size={22} className="text-gray-300" />
+                  </div>
+                  <p className="text-sm font-bold text-gray-500">Canvas is empty</p>
+                  <p className="text-xs text-gray-400 mt-1">Tell the agent what to build →</p>
+                </div>
+              </div>
+            )}
+
+            {/* Legend */}
+            <div className="absolute bottom-4 left-4 bg-white border border-gray-200 rounded-xl px-3 py-2 shadow-sm">
+              <div className="flex items-center gap-3">
+                {Object.entries(STATE_STYLES).slice(0, 4).map(([state, s]) => (
+                  <div key={state} className="flex items-center gap-1">
+                    <div className={`w-2 h-2 rounded-full ${state === 'draft' ? 'bg-amber-400' : state === 'approved' ? 'bg-emerald-400' : state === 'running' ? 'bg-blue-400' : 'bg-gray-300'}`} />
+                    <span className="text-[9px] text-gray-400 font-medium capitalize">{state}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Panel>
+      </PanelGroup>
+    </div>
+  );
+}

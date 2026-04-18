@@ -1,77 +1,69 @@
+/**
+ * Pre-work: Migrate workflows route from Prisma → Supabase
+ * Removes the only runtime Prisma dependency so we can delete prisma.ts
+ */
 import { NextRequest, NextResponse } from 'next/server';
-export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
-import prisma from '@/lib/prisma';
+import { createServerClient } from '@/lib/supabase';
 
-// Temporary mock auth
-const auth = () => ({ user: { id: "cm0n83vw10000y81g5fbc8j7q" } }); 
+export const dynamic = 'force-dynamic';
+
+const ANON_USER = '00000000-0000-0000-0000-000000000000'; // temporary until Auth is wired
 
 export async function PUT(req: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
+    const db = createServerClient();
     const body = await req.json();
-    
-    // Check if workflow exists first
-    const existing = await prisma.workflow.findUnique({
-      where: { id: params.id }
-    });
+
+    const { data: existing } = await db
+      .from('workflows')
+      .select('id')
+      .eq('id', params.id)
+      .maybeSingle();
 
     if (!existing) {
-      // Create if it doesn't exist for demo logic functionality, or return 404
-      // We will create it to ensure the save button always works during the sprint
-      const created = await prisma.workflow.create({
-        data: {
-          id: params.id,
-          userId: session.user.id,
-          name: body.name || 'Untitled Workflow',
-          description: body.description || '',
-          status: 'draft',
-          flowDefinition: body.data
-        }
-      });
-      return NextResponse.json(created);
+      const { data, error } = await db.from('workflows').insert({
+        id: params.id,
+        user_id: ANON_USER,
+        name: body.name || 'Untitled Workflow',
+        description: body.description || '',
+        status: 'draft',
+        flow_definition: body.data,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }).select().single();
+      if (error) throw error;
+      return NextResponse.json(data);
     }
 
-    const updated = await prisma.workflow.update({
-      where: {
-        id: params.id,
-      },
-      data: {
-        name: body.name || existing.name,
-        description: body.description ?? existing.description,
-        flowDefinition: body.data 
-      }
-    });
-    
-    return NextResponse.json(updated);
+    const { data, error } = await db.from('workflows').update({
+      name: body.name,
+      description: body.description,
+      flow_definition: body.data,
+      updated_at: new Date().toISOString(),
+    }).eq('id', params.id).select().single();
+
+    if (error) throw error;
+    return NextResponse.json(data);
   } catch (error: any) {
-    console.error('[Workflow API] Failed to update workflow:', error);
+    console.error('[Workflow API] PUT error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+    const db = createServerClient();
+    const { data, error } = await db
+      .from('workflows')
+      .select('*')
+      .eq('id', params.id)
+      .maybeSingle();
 
-    const workflow = await prisma.workflow.findUnique({
-      where: { id: params.id }
-    });
-
-    if (!workflow) {
-      return NextResponse.json({ error: 'Not found' }, { status: 404 });
-    }
-
-    return NextResponse.json(workflow);
+    if (error) throw error;
+    if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+    return NextResponse.json(data);
   } catch (error: any) {
-    console.error('[Workflow API] Failed to fetch workflow:', error);
+    console.error('[Workflow API] GET error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
