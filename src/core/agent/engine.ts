@@ -5,6 +5,8 @@ import { MetaAdapter } from "./channels/meta";
 import { WhatsAppAdapter } from "./channels/whatsapp";
 import { LinkedInAdapter } from "./channels/linkedin";
 import { WebsiteAdapter } from "./channels/website";
+import { classifyIntent } from "@/lib/intent-classifier";
+import { routeToAgent } from "@/lib/agent-router";
 
 function getAdapter(platform: string) {
   switch (platform) {
@@ -40,7 +42,7 @@ export async function processWebhookJob(
     // Meta sends different IDs depending on format:
     // - Facebook Page ID (1036420716222686) for Messenger/Page webhooks
     // - Instagram Business Account ID (17841476008226882) for Instagram webhooks
-    let connection: { user_id: string; access_token: string } | null = null;
+    let connection: { user_id: string; access_token: string; page_id: string } | null = null;
 
     const { data: directMatch } = await supabase
       .from("platform_connections")
@@ -81,15 +83,28 @@ export async function processWebhookJob(
 
     const openai = new OpenAI({ apiKey });
 
-    const systemPrompt = `You are a helpful AI assistant for ${agentData?.business_name || "a business"}.
+    // 3. Routing & Intent Classification
+    const userMessageContent = job.raw_payload.message?.text || "[Media/Attachment]";
+    const history = await getMemoryWithinBudget(supabase, job.lead_id, 2000);
+    const contextWindow = history.map(m => String(m.content)).slice(-3); // Get last 3 for classification
+    
+    const { intent, confidence } = await classifyIntent(userMessageContent, contextWindow);
+    const agent = await routeToAgent(intent, user_id, supabase);
+
+    let model = "gpt-4o-mini";
+    let temperature = 0.3;
+
+    let systemPrompt = `You are a helpful AI assistant for ${agentData?.business_name || "a business"}.
 Brand Voice: ${agentData?.brand_voice || "friendly"}
 Business Context: ${agentData?.business_description || "Help users with their inquiries."}
 Knowledge Base: ${agentData?.knowledge_base || "N/A"}`;
 
-    // 3. Memory Setup
-    const history = await getMemoryWithinBudget(supabase, job.lead_id, 2000);
-    const userMessageContent = job.raw_payload.message?.text || "[Media/Attachment]";
-    
+    if (agent && agent.system_prompt) {
+      systemPrompt += `\n\n=== Agent Role (${agent.name} - Intent: ${intent}) ===\n${agent.system_prompt}`;
+      model = agent.model || model;
+      temperature = agent.temperature ?? temperature;
+    }
+
     const messages: any[] = [
       { role: "system", content: systemPrompt },
       ...history.map(m => ({ role: m.role, content: m.content })),
@@ -99,9 +114,11 @@ Knowledge Base: ${agentData?.knowledge_base || "N/A"}`;
     // 4. LLM Race Condition (prevent stalling on Edge)
     const aiReply = await Promise.race([
       openai.chat.completions.create({
-        model: "gpt-4o-mini",
+        model,
         messages,
-        max_tokens: 300
+        max_tokens: 300,
+        temperature
+
       }).then(res => res.choices[0].message.content || "I'm sorry, I couldn't process that."),
       new Promise<string>((_, reject) =>
         setTimeout(() => reject(new Error("LLM timeout")), 25000)

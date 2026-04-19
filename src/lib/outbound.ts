@@ -16,7 +16,7 @@ function getValidUrl(urls: (string | undefined)[]): string {
     if (!u.startsWith('http')) u = `https://${u}`;
     return u;
   }
-  return 'https://uruvtlrchjmnutgkanpl.supabase.co';
+  throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL in environment.");
 }
 
 function getValidKey(keys: (string | undefined)[]): string {
@@ -26,7 +26,7 @@ function getValidKey(keys: (string | undefined)[]): string {
     if (k === '' || k.includes('<') || k === 'your_supabase_key') continue;
     return k;
   }
-  return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVydXZ0bHJjaGptbnV0Z2thbnBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMTgxNDQsImV4cCI6MjA4OTY5NDE0NH0.6BjES6k9f9CkTKef6o6532lhuQkEolBVpU2IBWyew2A';
+  throw new Error("Missing Supabase API key in environment.");
 }
 
 export function createOutboundClient() {
@@ -72,6 +72,18 @@ export interface CampaignConfig {
   custom_body?: string;
   /** Step 5: Channels */
   channels?: string[];
+  auto_send?: boolean;
+  daily_limit?: number;
+  gmail_accounts?: Array<{ email: string; password: string }>;
+  smtp_accounts?: Array<{
+    host: string;
+    port?: number;
+    secure?: boolean;
+    user: string;
+    password: string;
+    from_name?: string;
+    from_email?: string;
+  }>;
 }
 
 export interface OutboundLead {
@@ -338,7 +350,7 @@ export function stripHtml(html: string): string {
  * Runs asynchronously so the caller can return immediately.
  */
 export async function triggerStage(
-  stage: 'research' | 'qualify' | 'personalise',
+  stage: 'research' | 'qualify' | 'personalise' | 'send',
   leadId: string,
 ): Promise<void> {
   const db = createOutboundClient();
@@ -374,8 +386,9 @@ export async function triggerApifyActor(
   actorUrl: string,
   inputConfig: Record<string, unknown>,
   webhookUrl?: string,
+  apiKeyOverride?: string,
 ): Promise<ApifyRunResult> {
-  const apiKey = process.env.APIFY_API_KEY;
+  const apiKey = apiKeyOverride || process.env.APIFY_API_KEY;
   if (!apiKey) throw new Error('APIFY_API_KEY not configured in .env.local');
 
   // actorUrl is already the full run URL e.g.
@@ -413,8 +426,8 @@ export async function triggerApifyActor(
   };
 }
 
-export async function fetchApifyDataset(runId: string): Promise<Record<string, unknown>[]> {
-  const apiKey = process.env.APIFY_API_KEY;
+export async function fetchApifyDataset(runId: string, apiKeyOverride?: string): Promise<Record<string, unknown>[]> {
+  const apiKey = apiKeyOverride || process.env.APIFY_API_KEY;
   if (!apiKey) throw new Error('APIFY_API_KEY not configured');
 
   const url = `https://api.apify.com/v2/actor-runs/${runId}/dataset/items?token=${apiKey}&format=json&limit=1000`;
@@ -423,27 +436,69 @@ export async function fetchApifyDataset(runId: string): Promise<Record<string, u
   return res.json() as Promise<Record<string, unknown>[]>;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+
+  return null;
+}
+
+function firstNonEmptyString(values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (trimmed.length > 0) {
+        return trimmed;
+      }
+    }
+  }
+
+  return null;
+}
+
 /** Normalise whatever shape an Apify actor returns into our lead schema */
 export function normaliseLead(item: Record<string, unknown>): Partial<OutboundLead> {
   // Crunchbase actor often nests data in `properties` or `cards`
-  const cbProps = (item.properties as Record<string, unknown>) || item;
+  const cbProps = asRecord(item.properties) ?? item;
   
   // Try to extract an initial contact if the scraper returns people arrays
   const contacts = Array.isArray(item.contacts) ? item.contacts : [];
-  const firstContact = (contacts[0] as Record<string, unknown>) || {};
+  const firstContact = asRecord(contacts[0]) ?? {};
+  const cbIdentifier = asRecord(cbProps.identifier);
+  const cbLinkedin = asRecord(cbProps.linkedin);
 
-  const companyName = cbProps.title ?? cbProps.identifier?.value ?? item.companyName ?? item.company ?? item.organization ?? null;
-  const companyWebsite = cbProps.website_url ?? item.website ?? item.companyWebsite ?? item.url ?? null;
-  const linkedin = cbProps.linkedin?.value ?? item.linkedInUrl ?? item.profileUrl ?? item.linkedin ?? null;
+  const fullName = firstNonEmptyString([item.name]);
+  const companyName = firstNonEmptyString([
+    cbProps.title,
+    cbIdentifier?.value,
+    item.companyName,
+    item.company,
+    item.organization,
+  ]);
+  const companyWebsite = firstNonEmptyString([
+    cbProps.website_url,
+    item.website,
+    item.companyWebsite,
+    item.url,
+  ]);
+  const linkedin = firstNonEmptyString([
+    cbLinkedin?.value,
+    item.linkedInUrl,
+    item.profileUrl,
+    item.linkedin,
+  ]);
+  const firstNameFromFullName = fullName?.split(' ')[0] ?? null;
+  const lastNameFromFullName = fullName?.split(' ').slice(1).join(' ') || null;
 
   return {
-    first_name: (firstContact.first_name ?? item.firstName ?? item.first_name ?? item.name?.toString().split(' ')[0] ?? null) as string | null,
-    last_name: (firstContact.last_name ?? item.lastName ?? item.last_name ?? item.name?.toString().split(' ').slice(1).join(' ') ?? null) as string | null,
-    email: (firstContact.email ?? item.email ?? item.workEmail ?? item.personalEmail ?? null) as string | null,
-    company: companyName as string | null,
-    title: (firstContact.title ?? cbProps.short_description ?? item.jobTitle ?? item.title ?? item.position ?? null) as string | null,
-    linkedin_url: linkedin as string | null,
-    website: companyWebsite as string | null,
+    first_name: firstNonEmptyString([firstContact.first_name, item.firstName, item.first_name, firstNameFromFullName]),
+    last_name: firstNonEmptyString([firstContact.last_name, item.lastName, item.last_name, lastNameFromFullName]),
+    email: firstNonEmptyString([firstContact.email, item.email, item.workEmail, item.personalEmail]),
+    company: companyName,
+    title: firstNonEmptyString([firstContact.title, cbProps.short_description, item.jobTitle, item.title, item.position]),
+    linkedin_url: linkedin,
+    website: companyWebsite,
     raw_data: item,
   };
 }

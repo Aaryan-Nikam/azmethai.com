@@ -1,11 +1,11 @@
 /**
  * middleware.ts — Supabase Auth session gate
  * Protects all /dashboard/** routes.
- * Uses @supabase/supabase-js cookie pattern (no auth-helpers needed).
+ * Uses @supabase/ssr cookie pattern.
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { createServerClient as createSupabaseServerClient } from '@supabase/supabase-js';
+import { createServerClient } from '@supabase/ssr';
+import { NextResponse, type NextRequest } from 'next/server';
 
 export const config = {
   matcher: [
@@ -19,25 +19,51 @@ export const config = {
   ],
 };
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next();
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  });
 
   // Skip auth check if no Supabase keys configured (dev without auth)
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseKey) return res;
+  if (!supabaseUrl || !supabaseKey) return response;
 
-  // Extract session from cookie
-  const sessionCookie = req.cookies.get('sb-session')?.value
-    || req.cookies.get(`sb-${supabaseUrl.split('//')[1]?.split('.')[0]}-auth-token`)?.value;
+  const supabase = createServerClient(
+    supabaseUrl,
+    supabaseKey,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) => {
+            request.cookies.set(name, value);
+          });
+          response = NextResponse.next({
+            request,
+          });
+          cookiesToSet.forEach(({ name, value, options }) => {
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
+  // Call getUser to actually validate the JWT and potentially refresh it
+  const { data: { user } } = await supabase.auth.getUser();
 
   // If no session and trying to access dashboard → redirect to login
-  if (!sessionCookie && req.nextUrl.pathname.startsWith('/dashboard')) {
-    const loginUrl = req.nextUrl.clone();
+  if (!user && request.nextUrl.pathname.startsWith('/dashboard')) {
+    const loginUrl = request.nextUrl.clone();
     loginUrl.pathname = '/login';
-    loginUrl.searchParams.set('redirect', req.nextUrl.pathname);
+    loginUrl.searchParams.set('redirect', request.nextUrl.pathname);
     return NextResponse.redirect(loginUrl);
   }
 
-  return res;
+  return response;
 }

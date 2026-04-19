@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   TrendingUp, Users, BarChart2, Activity,
   Zap, ArrowUpRight, ChevronDown, RefreshCw, Check, AlertTriangle,
-  Rocket, MessageSquare, CheckCircle2, Clock, AlertCircle,
+  Rocket, MessageSquare, CheckCircle, Clock, AlertCircle,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -170,7 +170,7 @@ export default function CommandCenterPage() {
       label: 'Meetings Booked',
       val: data.kpis.meetingsBooked.toString(),
       sub: 'status: meeting_set',
-      icon: CheckCircle2,
+      icon: CheckCircle,
       accent: 'text-green-600',
       bg: 'bg-green-50',
     },

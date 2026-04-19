@@ -44,7 +44,11 @@ export async function GET(request: NextRequest) {
   const token     = sp.get("hub.verify_token");
   const challenge = sp.get("hub.challenge");
 
-  const VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN || "azmeth_secure_token";
+  const VERIFY_TOKEN = process.env.META_WEBHOOK_VERIFY_TOKEN;
+
+  if (!VERIFY_TOKEN) {
+    return NextResponse.json({ error: "Server Configuration Error: Verify Token missing" }, { status: 500 });
+  }
 
   if (mode === "subscribe" && token === VERIFY_TOKEN) {
     return new Response(challenge, { status: 200, headers: { "Content-Type": "text/plain" } });

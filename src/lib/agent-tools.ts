@@ -115,6 +115,20 @@ const setterTools: ToolDef[] = [
   {
     type: 'function',
     function: {
+      name: 'set_agent_api_key',
+      description: 'Store or update the tenant OpenAI API key and switch billing mode to custom. Use this when the user provides their key in chat.',
+      parameters: {
+        type: 'object',
+        properties: {
+          api_key: { type: 'string', description: 'User-provided OpenAI API key (stored securely in backend config).' },
+        },
+        required: ['api_key'],
+      },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'list_agents_in_registry',
       description: 'List all agents registered in the agent registry with their specializations and status.',
       parameters: {
@@ -242,12 +256,12 @@ const outboundTools: ToolDef[] = [
     type: 'function',
     function: {
       name: 'trigger_stage_for_lead',
-      description: 'Move a specific outbound lead to the next pipeline stage (qualify, personalize, send).',
+      description: 'Move a specific outbound lead to the next pipeline stage (research, qualify, personalise/personalize, send).',
       parameters: {
         type: 'object',
         properties: {
           lead_id: { type: 'string' },
-          stage: { type: 'string', enum: ['qualify', 'personalize', 'send'] },
+          stage: { type: 'string', enum: ['research', 'qualify', 'personalise', 'personalize', 'send'] },
         },
         required: ['lead_id', 'stage'],
       },
@@ -264,6 +278,7 @@ const outboundTools: ToolDef[] = [
           url: { type: 'string', description: 'Source URL to scrape leads from' },
           campaign_id: { type: 'string' },
           max_leads: { type: 'number', default: 50, maximum: 500 },
+          apify_api_key: { type: 'string', description: 'Optional runtime Apify API key if not already configured in environment' },
         },
         required: ['url', 'campaign_id'],
       },

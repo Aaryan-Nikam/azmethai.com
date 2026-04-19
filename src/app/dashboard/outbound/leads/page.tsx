@@ -6,8 +6,9 @@ import {
   Search, X, ChevronRight, Filter, ArrowUpRight,
   Check, ThumbsUp, ThumbsDown, ExternalLink,
   Globe, Mail, MessageSquare, Building2,
-  User, TrendingUp, Star, Clock, Zap, BrainCircuit
+  User, TrendingUp, Star, Clock, Zap, Cpu
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -134,7 +135,17 @@ function ScoreBadge({ score }: { score: number }) {
 
 // ─── Lead Drawer ──────────────────────────────────────────────────────────────
 
-function LeadDrawer({ lead, onClose }: { lead: Lead; onClose: () => void }) {
+function LeadDrawer({
+  lead,
+  onClose,
+  onApprove,
+  onReject,
+}: {
+  lead: Lead;
+  onClose: () => void;
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+}) {
   return (
     <motion.div
       initial={{ x: '100%', opacity: 0 }}
@@ -196,7 +207,7 @@ function LeadDrawer({ lead, onClose }: { lead: Lead; onClose: () => void }) {
         {/* Research Summary */}
         <div className="px-6 py-4 border-b border-gray-100">
           <div className="flex items-center gap-2 mb-3">
-            <BrainCircuit size={14} className="text-purple-500" />
+            <Cpu size={14} className="text-purple-500" />
             <p className="text-xs font-bold text-gray-700 uppercase tracking-wider">Research Summary</p>
           </div>
           {lead.researchSummary ? (
@@ -242,10 +253,16 @@ function LeadDrawer({ lead, onClose }: { lead: Lead; onClose: () => void }) {
           <div className="px-6 py-4">
             <p className="text-xs font-bold text-gray-700 uppercase tracking-wider mb-3">Manual Qualification</p>
             <div className="flex gap-3">
-              <button className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors">
+              <button
+                onClick={() => onApprove(lead.id)}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors"
+              >
                 <ThumbsUp size={14} /> Approve
               </button>
-              <button className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-50 text-red-600 text-sm font-bold rounded-xl border border-red-200 hover:bg-red-100 transition-colors">
+              <button
+                onClick={() => onReject(lead.id)}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-red-50 text-red-600 text-sm font-bold rounded-xl border border-red-200 hover:bg-red-100 transition-colors"
+              >
                 <ThumbsDown size={14} /> Reject
               </button>
             </div>
@@ -259,11 +276,12 @@ function LeadDrawer({ lead, onClose }: { lead: Lead; onClose: () => void }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function LeadPoolPage() {
+  const [leads, setLeads] = useState<Lead[]>(MOCK_LEADS);
   const [activeStage, setActiveStage] = useState<Stage>('all');
   const [search, setSearch] = useState('');
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
 
-  const filtered = MOCK_LEADS.filter(l => {
+  const filtered = leads.filter(l => {
     const q = search.toLowerCase();
     const matchStage = activeStage === 'all' || l.stage === activeStage;
     const matchQ = l.firstName.toLowerCase().includes(q) ||
@@ -274,9 +292,33 @@ export default function LeadPoolPage() {
   });
 
   const stageCounts = STAGES.reduce((acc, s) => {
-    acc[s.id] = s.id === 'all' ? MOCK_LEADS.length : MOCK_LEADS.filter(l => l.stage === s.id).length;
+    acc[s.id] = s.id === 'all' ? leads.length : leads.filter(l => l.stage === s.id).length;
     return acc;
   }, {} as Record<string, number>);
+
+  const updateLead = (id: string, fn: (lead: Lead) => Lead) => {
+    setLeads(prev => prev.map(lead => (lead.id === id ? fn(lead) : lead)));
+    setSelectedLead(prev => (prev && prev.id === id ? fn(prev) : prev));
+  };
+
+  const approveLead = (id: string) => {
+    updateLead(id, (lead) => ({
+      ...lead,
+      qualStatus: 'qualified',
+      qualScore: lead.qualScore > 0 ? lead.qualScore : 72,
+      stage: lead.stage === 'scraped' || lead.stage === 'researched' ? 'qualified' : lead.stage,
+    }));
+    toast.success('Lead approved for outreach');
+  };
+
+  const rejectLead = (id: string) => {
+    updateLead(id, (lead) => ({
+      ...lead,
+      qualStatus: 'rejected',
+      stage: lead.stage === 'personalised' || lead.stage === 'sent' || lead.stage === 'replied' ? 'researched' : lead.stage,
+    }));
+    toast.success('Lead rejected');
+  };
 
   return (
     <div className="flex h-full overflow-hidden font-sans bg-[#f7f8fa]">
@@ -290,7 +332,7 @@ export default function LeadPoolPage() {
               <p className="text-sm text-gray-400 mt-0.5">All scraped leads across active campaigns — research, qualify, and track status.</p>
             </div>
             <div className="flex items-center gap-2 text-sm font-semibold text-gray-600 bg-white border border-gray-200 px-3 py-2 rounded-xl shadow-sm">
-              <span className="text-lg font-bold text-gray-900">{MOCK_LEADS.length}</span> total leads
+                    <span className="text-lg font-bold text-gray-900">{leads.length}</span> total leads
             </div>
           </div>
 
@@ -396,7 +438,12 @@ export default function LeadPoolPage() {
           {/* Slide-over Drawer */}
           <AnimatePresence>
             {selectedLead && (
-              <LeadDrawer lead={selectedLead} onClose={() => setSelectedLead(null)} />
+              <LeadDrawer
+                lead={selectedLead}
+                onClose={() => setSelectedLead(null)}
+                onApprove={approveLead}
+                onReject={rejectLead}
+              />
             )}
           </AnimatePresence>
         </div>

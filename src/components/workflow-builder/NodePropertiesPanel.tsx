@@ -17,12 +17,13 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { NodePropertiesPanelV2 } from "@/lib/workflow/fields/FieldTypeRegistry";
+import type { AzmethNodeProperty } from "@/lib/workflow/types";
 import { ConnectionModal } from "./ConnectionModal";
 
 interface NodePropertiesPanelProps {
   nodeId: string;
   nodeName: string;
-  schema: any[];
+  schema: AzmethNodeProperty[];
   data: Record<string, any>;
   onChange: (key: string, value: any) => void;
   onNameChange?: (name: string) => void;
@@ -110,7 +111,7 @@ export function NodePropertiesPanel({
             <div className="space-y-6">
               <NodePropertiesPanelV2 
                 nodeId={nodeId} 
-                schema={parametersSchema} 
+                schema={{ properties: parametersSchema }} 
                 data={data} 
                 onChange={onChange} 
               />

@@ -31,10 +31,12 @@ export async function POST(req: NextRequest) {
       max_items?: number;
       actor_url?: string;
       input_config?: Record<string, unknown>;
+      apify_api_key?: string;
     };
 
     const { campaign_id } = body;
     const source = body.source ?? 'apify';
+    const apifyApiKey = body.apify_api_key || process.env.APIFY_API_KEY;
 
     if (!campaign_id) {
       return NextResponse.json({ error: 'campaign_id is required' }, { status: 400 });
@@ -71,8 +73,7 @@ export async function POST(req: NextRequest) {
     let inputPayload: Record<string, unknown>;
 
     if (source === 'crunchbase') {
-      const apiKey = process.env.APIFY_API_KEY;
-      if (!apiKey) {
+      if (!apifyApiKey) {
         return NextResponse.json(
           { error: 'APIFY_API_KEY not configured in .env.local' },
           { status: 400 },
@@ -90,6 +91,10 @@ export async function POST(req: NextRequest) {
         ...(body.input_config ?? {}),
         _azmeth_campaign_id: campaign_id,
       };
+    }
+
+    if (apifyApiKey) {
+      inputPayload._azmeth_apify_api_key = apifyApiKey;
     }
 
     // Create scraper job record
@@ -111,7 +116,7 @@ export async function POST(req: NextRequest) {
     // Trigger Apify
     let apifyRunId: string | null = null;
     try {
-      const run = await triggerApifyActor(actorRunUrl, inputPayload, webhookUrl);
+      const run = await triggerApifyActor(actorRunUrl, inputPayload, webhookUrl, apifyApiKey);
       apifyRunId = run.runId;
 
       await db

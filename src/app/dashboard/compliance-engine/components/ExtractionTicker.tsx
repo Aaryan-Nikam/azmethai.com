@@ -23,7 +23,7 @@ export default function ExtractionTicker() {
         setEvents(prev => [{
           id: Math.random().toString(),
           timestamp: new Date().toLocaleTimeString(),
-          status: 'success',
+          status: 'success' as const,
           file_name: `inv-10${count}.pdf`,
           confidence: 0.98,
           message: 'Parsed 25+ fields. Net Terms extrapolated.'
@@ -32,7 +32,7 @@ export default function ExtractionTicker() {
         setEvents(prev => [{
           id: Math.random().toString(),
           timestamp: new Date().toLocaleTimeString(),
-          status: 'abort',
+          status: 'abort' as const,
           file_name: `contract_dpa_${count}.pdf`,
           confidence: 0.2,
           message: 'EXTRACTION_ABORT: Ambiguous clause detected.'
@@ -41,7 +41,7 @@ export default function ExtractionTicker() {
         setEvents(prev => [{
           id: Math.random().toString(),
           timestamp: new Date().toLocaleTimeString(),
-          status: 'ingested',
+          status: 'ingested' as const,
           file_name: `storage-uid-${count}.pdf`,
           message: 'Received via pg_net trigger -> BullMQ'
         }, ...prev].slice(0, 15));

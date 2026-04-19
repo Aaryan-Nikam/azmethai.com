@@ -3,10 +3,11 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import {
   Check, Plus, X, ChevronRight, Minus,
-  Search, Zap, BrainCircuit, Filter, PenTool, Send,
-  Globe, Linkedin, Mail, MessageCircle, Tag, Building2,
+  Search, Zap, Cpu, Filter, Pen, Send,
+  Globe, Mail, MessageCircle, Tag, Building2,
   MapPin, Users, TrendingUp, Sparkles, RefreshCw, Info,
   Trash2, GripVertical, Upload, FileText
 } from 'lucide-react';
@@ -384,12 +385,13 @@ export default function OutboundEngineSetup() {
       }
 
       localStorage.setItem(SETUP_KEY, 'true');
+      toast.success('Campaign launched successfully');
       router.refresh(); // Clear NextJS client router cache
       router.push('/dashboard/outbound');
     } catch (err: any) {
       console.error('Launch failed:', err);
       setIsLaunching(false);
-      alert('Failed to launch campaign: ' + (err.message || String(err)));
+      toast.error(`Failed to launch campaign: ${err.message || String(err)}`);
     } 
   };
   const SCRAPE_SOURCES = [

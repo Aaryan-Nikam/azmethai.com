@@ -114,7 +114,7 @@ export default function VendorTable() {
                 </div>
               </td>
               <td className="py-4 px-6 text-right">
-                <button className="text-sm text-gray-400 hover:text-white transition-colors">
+                <button onClick={() => setSelectedVendorId(vendor.id)} className="text-sm text-gray-400 hover:text-white transition-colors">
                   Details
                 </button>
               </td>

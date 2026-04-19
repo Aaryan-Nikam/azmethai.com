@@ -28,7 +28,7 @@ export function assertComplianceObligationsVersion(
   const version = (obj as ComplianceObligations)?.version;
   if (version !== COMPLIANCE_OBLIGATIONS_VERSION) {
     throw new Error(
-      \`ComplianceObligations version mismatch: expected \${COMPLIANCE_OBLIGATIONS_VERSION}, got \${version}\`
+      `ComplianceObligations version mismatch: expected ${COMPLIANCE_OBLIGATIONS_VERSION}, got ${version}`
     );
   }
 }

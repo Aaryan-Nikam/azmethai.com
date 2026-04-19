@@ -5,7 +5,7 @@
  * After 3 retries, marks as permanently_failed.
  */
 
-import { runResearch, runQualify, runPersonalise } from '@/lib/outbound-service';
+import { runResearch, runQualify, runPersonalise, runSend } from '@/lib/outbound-service';
 
 export interface OutboundQueueRow {
   id: string;
@@ -37,6 +37,9 @@ export async function processOutboundJob(supabase: any, job: OutboundQueueRow) {
         break;
       case 'personalise':
         await runPersonalise(job.lead_id);
+        break;
+      case 'send':
+        await runSend(job.lead_id);
         break;
       default:
         console.warn(`[outbound-worker] Unknown job type: ${job.type}`);

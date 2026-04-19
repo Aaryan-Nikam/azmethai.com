@@ -109,8 +109,18 @@ async function processMessage(queueId: string, incoming: IncomingMessage): Promi
     // 1. Classify intent (with context)
     const { intent, confidence } = await classifyIntent(incoming.body, contextWindow);
 
+    // 1b. Resolve tenant user_id from platform_connections
+    const { data: connection } = await db
+      .from('platform_connections')
+      .select('user_id')
+      .eq('platform', incoming.platform)
+      .limit(1)
+      .maybeSingle();
+
+    const userId: string = connection?.user_id ?? '';
+
     // 2. Route to appropriate agent
-    const agent = await routeToAgent(intent);
+    const agent = await routeToAgent(intent, userId, db);
     if (!agent) {
       await db.from('message_queue').update({ status: 'failed', processed_at: new Date().toISOString() }).eq('id', queueId);
       return;
@@ -160,7 +170,11 @@ export async function GET(req: NextRequest, { params }: { params: { platform: st
   const token = searchParams.get('hub.verify_token');
   const challenge = searchParams.get('hub.challenge');
 
-  const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN || 'azmeth_webhook_2025';
+  const verifyToken = process.env.META_WEBHOOK_VERIFY_TOKEN;
+
+  if (!verifyToken) {
+    return NextResponse.json({ error: 'Server Configuration Error: Verify Token missing' }, { status: 500 });
+  }
 
   if (mode === 'subscribe' && token === verifyToken) {
     return new NextResponse(challenge, { status: 200 });

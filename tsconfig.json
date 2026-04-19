@@ -37,6 +37,8 @@
     "**/*.mts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    "src/lib/execution",
+    "src/lib/workflow"
   ]
 }

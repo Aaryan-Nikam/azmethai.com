@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
 import {
   ReactFlow, Background, Controls, MiniMap,
   useNodesState, useEdgesState, addEdge,
@@ -24,7 +23,16 @@ import { toast } from 'sonner';
 
 type NodeState = 'draft' | 'approved' | 'running' | 'done' | 'error';
 
-interface AgentMessage { role: 'user' | 'agent'; text: string; ts: number; toolsUsed?: number; }
+interface AgentTraceEvent { type: 'thinking' | 'tool_call' | 'tool_result' | 'clarification' | 'final'; iteration: number; summary?: string; tool?: string; }
+interface PendingInputRequest { key: string; label: string; question: string; sensitive?: boolean; reason?: string; }
+interface AgentMessage {
+  role: 'user' | 'agent';
+  text: string;
+  ts: number;
+  toolsUsed?: number;
+  trace?: AgentTraceEvent[];
+  requiresInput?: PendingInputRequest | null;
+}
 interface CanvasNode { id: string; type: string; label: string; config: Record<string, unknown>; state: NodeState; position_x: number; position_y: number; }
 interface CanvasEdge { id: string; source_id: string; target_id: string; }
 
@@ -124,6 +132,17 @@ function ChatBubble({ msg }: { msg: AgentMessage }) {
         {msg.toolsUsed ? (
           <p className="text-[9px] mt-1.5 opacity-50">{msg.toolsUsed} tool{msg.toolsUsed !== 1 ? 's' : ''} used</p>
         ) : null}
+        {isAgent && msg.trace && msg.trace.length > 0 ? (
+          <div className="mt-2 pt-2 border-t border-gray-100 space-y-1">
+            {msg.trace.slice(-4).map((event, idx) => (
+              <p key={`${msg.ts}-trace-${idx}`} className="text-[10px] text-gray-500">
+                Step {event.iteration} · {event.type}
+                {event.tool ? ` · ${event.tool}` : ''}
+                {event.summary ? ` · ${event.summary}` : ''}
+              </p>
+            ))}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -140,6 +159,8 @@ export default function SandboxPage() {
   ]);
   const [input, setInput] = useState('');
   const [thinking, setThinking] = useState(false);
+  const [pendingInput, setPendingInput] = useState<PendingInputRequest | null>(null);
+  const [runtimeSecrets, setRuntimeSecrets] = useState<Record<string, string>>({});
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // ── Canvas State ─────────────────────────────────────────────────────────────
@@ -276,39 +297,79 @@ export default function SandboxPage() {
   const sendMessage = useCallback(async () => {
     if (!input.trim() || thinking) return;
     const userMsg = input.trim();
+    const activePendingInput = pendingInput;
+    const isSensitiveReply = Boolean(activePendingInput?.sensitive);
+    const visibleUserText = isSensitiveReply
+      ? `[Secure input provided: ${activePendingInput?.label || 'Sensitive Value'}]`
+      : userMsg;
+    const modelUserText = isSensitiveReply
+      ? `Secure value provided for ${activePendingInput?.label || activePendingInput?.key || 'requested input'}. Continue from the blocked step.`
+      : userMsg;
     setInput('');
-    setMessages(p => [...p, { role: 'user', text: userMsg, ts: Date.now() }]);
+    setMessages(p => [...p, { role: 'user', text: visibleUserText, ts: Date.now() }]);
     setThinking(true);
 
     // Inject sandbox context into the message so agent knows the workflow_id
-    const contextualMessage = `[Sandbox context: workflow_id=${workflowId}]\n${userMsg}`;
+    const contextualMessage = `[Sandbox context: workflow_id=${workflowId}]\n${modelUserText}`;
 
     try {
+      const runtimeInputPayload = activePendingInput
+        ? {
+            key: activePendingInput.key,
+            value: userMsg,
+            sensitive: activePendingInput.sensitive,
+          }
+        : null;
+
+      const nextRuntimeSecrets = runtimeInputPayload
+        ? { ...runtimeSecrets, [runtimeInputPayload.key]: runtimeInputPayload.value }
+        : runtimeSecrets;
+
+      if (runtimeInputPayload) {
+        setRuntimeSecrets(nextRuntimeSecrets);
+        setPendingInput(null);
+      }
+
       const res = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: [
-            ...messages.map(m => ({ role: m.role, text: m.text })),
+            ...messages.map(m => ({ role: m.role === 'agent' ? 'assistant' : m.role, text: m.text })),
             { role: 'user', text: contextualMessage },
           ],
+          runtime_input: runtimeInputPayload || undefined,
+          runtime_secrets: nextRuntimeSecrets,
         }),
       });
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Agent request failed');
+
       setMessages(p => [...p, {
         role: 'agent',
         text: data.text || data.error || 'Something went wrong.',
         ts: Date.now(),
         toolsUsed: data.iterations ? data.iterations - 1 : 0,
+        trace: Array.isArray(data.events) ? data.events : undefined,
+        requiresInput: data.requires_input || null,
       }]);
+
+      if (data.requires_input) {
+        setPendingInput(data.requires_input);
+      } else {
+        setPendingInput(null);
+      }
     } catch {
       setMessages(p => [...p, { role: 'agent', text: 'Connection error. Please try again.', ts: Date.now() }]);
     } finally {
       setThinking(false);
     }
-  }, [input, thinking, messages, workflowId]);
+  }, [input, thinking, messages, workflowId, pendingInput, runtimeSecrets]);
 
   const draftCount = canvasNodes.filter(n => n.state === 'draft').length;
+  const inputPlaceholder = pendingInput
+    ? `Required input: ${pendingInput.label}${pendingInput.sensitive ? ' (secret)' : ''}`
+    : 'Ask anything or give a build instruction…';
 
   return (
     <div className="h-[calc(100vh-64px)] flex flex-col bg-[#f7f8fa] font-sans overflow-hidden">
@@ -342,11 +403,11 @@ export default function SandboxPage() {
       </div>
 
       {/* Main split layout */}
-      <PanelGroup direction="horizontal" className="flex-1 overflow-hidden">
+      <div className="flex-1 flex overflow-hidden">
         
         {/* Left: Agent Chat */}
-        <Panel defaultSize={32} minSize={25} maxSize={50}>
-          <div className="flex flex-col h-full bg-white border-r border-gray-200">
+        <div className="w-[350px] shrink-0 border-r border-gray-200 bg-white">
+          <div className="flex flex-col h-full">
             {/* Chat header */}
             <div className="px-4 py-3 border-b border-gray-100 flex items-center gap-2.5 shrink-0">
               <div className="w-8 h-8 rounded-xl bg-gray-900 flex items-center justify-center">
@@ -401,12 +462,18 @@ export default function SandboxPage() {
 
             {/* Input */}
             <div className="px-4 pb-4 shrink-0">
+              {pendingInput && (
+                <div className="mb-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                  <p className="text-[11px] font-semibold text-amber-800">{pendingInput.question}</p>
+                  {pendingInput.reason ? <p className="text-[10px] text-amber-700 mt-1">{pendingInput.reason}</p> : null}
+                </div>
+              )}
               <div className="flex items-end gap-2 bg-gray-50 border border-gray-200 rounded-2xl px-3.5 py-2.5 focus-within:border-gray-400 focus-within:bg-white transition-all">
                 <textarea
                   value={input}
                   onChange={e => setInput(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } }}
-                  placeholder="Ask anything or give a build instruction…"
+                  placeholder={inputPlaceholder}
                   rows={1}
                   className="flex-1 bg-transparent text-sm text-gray-800 placeholder:text-gray-400 outline-none resize-none leading-relaxed"
                 />
@@ -420,12 +487,10 @@ export default function SandboxPage() {
               </div>
             </div>
           </div>
-        </Panel>
-
-        <PanelResizeHandle className="w-1.5 bg-gray-200 hover:bg-blue-400 transition-colors cursor-col-resize" />
+        </div>
 
         {/* Right: Canvas */}
-        <Panel defaultSize={68} minSize={40}>
+        <div className="flex-1 relative">
           <div className="h-full relative bg-[#f7f8fa]">
             <ReactFlow
               nodes={rfNodes}
@@ -477,8 +542,8 @@ export default function SandboxPage() {
               </div>
             </div>
           </div>
-        </Panel>
-      </PanelGroup>
+        </div>
+      </div>
     </div>
   );
 }

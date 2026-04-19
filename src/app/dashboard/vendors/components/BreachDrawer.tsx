@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { Card } from '@/components/ui/card';
 import { useBreaches } from '@/hooks/compliance/useBreaches';
+import { toast } from 'sonner';
 
 export default function BreachDrawer({ vendorId, tenantId, onClose }: { vendorId: string, tenantId: string, onClose: () => void }) {
   const [consequence, setConsequence] = useState('');
@@ -41,7 +42,7 @@ export default function BreachDrawer({ vendorId, tenantId, onClose }: { vendorId
         throw new Error(payload.error || 'API routing bounds enforcement block');
       }
 
-      alert('Batch generated successfully and logged into ae_audit_log.');
+      toast.success('Batch generated successfully and logged into ae_audit_log.');
       onClose();
     } catch (err: any) {
       setGenerationError(err.message);

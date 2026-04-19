@@ -5,6 +5,7 @@ import {
   Search, Filter, Camera, Hash, Mail, Link2, Phone,
   MoreHorizontal, Bot, X, Send, Paperclip, RefreshCw, AlertCircle
 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -154,6 +155,28 @@ export default function LiveInboxPage() {
     // Sync agent control with paused state
     setAgentControl(!activeThread.paused);
   }, [activeThread?.lead_id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Listen for real-time messages ──────────────────────────────────────────
+  useEffect(() => {
+    const channel = supabase.channel('inbox_changes')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'n8n_chat_histories' },
+        (payload) => {
+          // If the message belongs to activeThread, append it
+          if (activeThread && payload.new.session_id === activeThread.lead_id) {
+            setMessages(p => [...p, payload.new as ChatMessage]);
+          }
+          // Fetch threads to update last messages in sidebar
+          fetchThreads();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activeThread, fetchThreads]);
 
   // ── Toggle agent control (pauses/resumes AI) ──────────────────────────────
   const toggleAgentControl = async (on: boolean) => {
@@ -382,8 +405,25 @@ export default function LiveInboxPage() {
                   onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendReply(); } }}
                   placeholder="Write a reply… (Enter to send, Shift+Enter for new line)" rows={2}
                   className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-gray-400 resize-none" />
-                <div className="flex flex-col gap-2">
-                  <button className="p-2.5 text-gray-400 hover:text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50">
+                <div className="flex flex-col gap-2 relative">
+                  <input type="file" id="attach_inbox" className="hidden" onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setSending(true);
+                    try {
+                      // Attempt to upload; requires chat-attachments bucket to exist
+                      const { data, error } = await supabase.storage.from('chat-attachments').upload(`inbox/${Date.now()}_${file.name}`, file);
+                      if (error) throw error;
+                      const { data: { publicUrl } } = supabase.storage.from('chat-attachments').getPublicUrl(data.path);
+                      setReplyText(prev => prev + (prev ? '\n' : '') + `[Attachment: ${publicUrl}]`);
+                    } catch (err: any) {
+                      setReplyText(prev => prev + `\n[Error attaching: ${err.message}]`);
+                    } finally {
+                      setSending(false);
+                      e.target.value = ''; // Reset input to allow re-upload
+                    }
+                  }} />
+                  <button onClick={() => document.getElementById('attach_inbox')?.click()} disabled={sending} className="p-2.5 text-gray-400 hover:text-gray-700 border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-50">
                     <Paperclip size={15} />
                   </button>
                   <button onClick={sendReply} disabled={sending || !replyText.trim()}

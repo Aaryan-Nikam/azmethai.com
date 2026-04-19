@@ -2,8 +2,10 @@
  * intent-classifier.ts
  * Classifies incoming messages into 8 intent types using GPT-4o-mini.
  * Includes context_window (last 3 messages) for accuracy.
- * Target: < 400ms. Simple in-memory dedup cache.
+ * Caches results persistently in Supabase message_queue to survive cold starts.
  */
+
+import { createClient } from '@supabase/supabase-js';
 
 export const INTENT_TYPES = [
   'PRICING_INQUIRY',
@@ -24,9 +26,6 @@ export interface ClassificationResult {
   reasoning?: string;
 }
 
-// Simple in-process cache (survives within the same Node.js process warm instance)
-const cache = new Map<string, ClassificationResult>();
-
 const CLASSIFIER_PROMPT = `You are an intent classifier for a B2B sales AI system.
 Classify the message into EXACTLY ONE of these intent types:
 
@@ -41,6 +40,14 @@ Classify the message into EXACTLY ONE of these intent types:
 
 Respond with ONLY valid JSON: { "intent": "INTENT_TYPE", "confidence": 0.0-1.0 }`;
 
+// Instantiate a direct service role client so it works seamlessly inside cron workflows 
+// as well as standard API routes without requiring Next.js cookies hook.
+function getDbClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+  return createClient(supabaseUrl, supabaseKey);
+}
+
 export async function classifyIntent(
   message: string,
   contextWindow: string[] = []
@@ -50,10 +57,21 @@ export async function classifyIntent(
     return { intent: 'UNKNOWN', confidence: 0 };
   }
 
-  // Cache key includes message + last 2 context messages
-  const cacheKey = [message, ...contextWindow.slice(-2)].join('|||');
-  if (cache.has(cacheKey)) {
-    return cache.get(cacheKey)!;
+  // 1. Persistent Cache Lookup via Supabase
+  const db = getDbClient();
+  const { data: cached } = await db
+    .from('message_queue')
+    .select('classified_intent')
+    .eq('body', message)
+    .not('classified_intent', 'is', null)
+    .limit(1)
+    .maybeSingle();
+
+  if (cached && cached.classified_intent) {
+    return {
+      intent: cached.classified_intent as IntentType,
+      confidence: 1.0, 
+    };
   }
 
   // Build user content with context
@@ -93,10 +111,6 @@ export async function classifyIntent(
       intent,
       confidence: Math.min(1, Math.max(0, Number(parsed.confidence) || 0)),
     };
-
-    // Cache for this process lifetime (cap at 10k entries)
-    if (cache.size > 10000) cache.clear();
-    cache.set(cacheKey, result);
 
     return result;
   } catch {

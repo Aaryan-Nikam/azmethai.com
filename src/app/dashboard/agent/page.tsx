@@ -5,8 +5,9 @@ import { motion } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 import { 
   Send, Sparkles, User, Terminal, 
-  ArrowRight, Activity, Zap
+  ArrowRight, Activity, Zap, Paperclip
 } from 'lucide-react';
+import { toast } from 'sonner';
 import { AzmethLogo } from '@/components/ui/AzmethLogo';
 
 // ─── TYPES ──────────────────────────────────────────────────────────────
@@ -15,6 +16,8 @@ interface Message {
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  trace?: AgentTraceEvent[];
+  requiresInput?: PendingInputRequest | null;
 }
 
 interface ParsedBlock {
@@ -22,6 +25,24 @@ interface ParsedBlock {
   content: string;
   navUrl?: string;
   navLabel?: string;
+}
+
+interface AgentTraceEvent {
+  type: 'thinking' | 'tool_call' | 'tool_result' | 'clarification' | 'final';
+  iteration: number;
+  tool?: string;
+  status?: string;
+  summary?: string;
+}
+
+interface PendingInputRequest {
+  key: string;
+  label: string;
+  question: string;
+  sensitive?: boolean;
+  expected_format?: string;
+  reason?: string;
+  source_tool?: string;
 }
 
 // ─── NAV PARSER ─────────────────────────────────────────────────────────
@@ -63,6 +84,8 @@ export default function AzmethAgentDashboard() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [pendingInput, setPendingInput] = useState<PendingInputRequest | null>(null);
+  const [runtimeSecrets, setRuntimeSecrets] = useState<Record<string, string>>({});
   
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -70,6 +93,48 @@ export default function AzmethAgentDashboard() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isLoading]);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const sizeKb = Math.max(1, Math.round(file.size / 1024));
+      const header = `[Attached file: ${file.name} • ${sizeKb}KB]`;
+      let attachmentBlock = header;
+
+      const lowerName = file.name.toLowerCase();
+      const canReadAsText =
+        file.type.startsWith('text/') ||
+        file.type === 'application/json' ||
+        lowerName.endsWith('.md') ||
+        lowerName.endsWith('.txt') ||
+        lowerName.endsWith('.json') ||
+        lowerName.endsWith('.csv');
+
+      if (canReadAsText) {
+        const raw = await file.text();
+        const normalized = raw.replace(/\u0000/g, '').trim();
+        if (normalized) {
+          const excerpt = normalized.slice(0, 4000);
+          attachmentBlock = `${header}\n\n${excerpt}${normalized.length > excerpt.length ? '\n\n[Truncated for chat context]' : ''}`;
+        }
+      } else {
+        attachmentBlock = `${header}\n\nBinary file attached. Summarize what to do with this file and I will proceed step-by-step.`;
+      }
+
+      setInput(prev => (prev.trim() ? `${prev.trim()}\n\n${attachmentBlock}` : attachmentBlock));
+      toast.success('File attached to your draft message');
+      setTimeout(() => inputRef.current?.focus(), 50);
+    } catch (err) {
+      console.error(err);
+      toast.error('Could not read that file');
+    }
+
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   useEffect(() => {
     if (messages.length === 0) {
@@ -87,13 +152,22 @@ export default function AzmethAgentDashboard() {
   const handleSubmit = async (e?: React.FormEvent, overridingInput?: string) => {
     e?.preventDefault();
     
-    const submittedText = overridingInput || input;
-    if (!submittedText.trim() || isLoading) return;
+    const submittedText = (overridingInput || input).trim();
+    if (!submittedText || isLoading) return;
+
+    const activePendingInput = pendingInput;
+    const isSensitiveReply = Boolean(activePendingInput?.sensitive);
+    const visibleUserText = isSensitiveReply
+      ? `[Secure input provided: ${activePendingInput?.label || 'Sensitive Value'}]`
+      : submittedText;
+    const modelUserText = isSensitiveReply
+      ? `Secure value provided for ${activePendingInput?.label || activePendingInput?.key || 'requested input'}. Continue from the blocked step.`
+      : submittedText;
 
     const userMsg: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: submittedText.trim(),
+      content: visibleUserText,
       timestamp: new Date()
     };
     
@@ -102,38 +176,63 @@ export default function AzmethAgentDashboard() {
     setIsLoading(true);
 
     try {
-      const chatHistory = messages.filter(m => m.id !== 'welcome').map(m => ({
-        role: m.role,
-        content: m.content
-      }));
-      chatHistory.push({ role: 'user', content: submittedText.trim() });
+      const runtimeInputPayload = activePendingInput
+        ? {
+            key: activePendingInput.key,
+            value: submittedText,
+            sensitive: activePendingInput.sensitive,
+          }
+        : null;
+
+      const nextRuntimeSecrets = runtimeInputPayload
+        ? { ...runtimeSecrets, [runtimeInputPayload.key]: runtimeInputPayload.value }
+        : runtimeSecrets;
+
+      if (runtimeInputPayload) {
+        setRuntimeSecrets(nextRuntimeSecrets);
+        setPendingInput(null);
+      }
+
+      const chatHistory = messages
+        .filter(m => m.id !== 'welcome')
+        .map(m => ({
+          role: m.role,
+          text: m.content,
+        }));
+      chatHistory.push({ role: 'user', text: modelUserText });
 
       const res = await fetch('/api/agent', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: chatHistory }),
+        body: JSON.stringify({
+          messages: chatHistory,
+          runtime_input: runtimeInputPayload || undefined,
+          runtime_secrets: nextRuntimeSecrets,
+        }),
       });
 
-      if (!res.ok) throw new Error('Failed to fetch response');
-      
       const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch response');
       
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.reply || "I encountered an error processing your request.",
-        timestamp: new Date()
+        content: data.text || "I encountered an error processing your request.",
+        timestamp: new Date(),
+        trace: Array.isArray(data.events) ? data.events : undefined,
+        requiresInput: data.requires_input || null,
       };
       
       setMessages(prev => [...prev, botMsg]);
+
+      if (data.requires_input) {
+        setPendingInput(data.requires_input);
+      } else {
+        setPendingInput(null);
+      }
     } catch (err) {
       console.error(err);
-      setMessages(prev => [...prev, {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: "Sorry, I lost my connection to the command center. Please try again.",
-        timestamp: new Date()
-      }]);
+      toast.error("Agent execution failed");
     } finally {
       setIsLoading(false);
       setTimeout(() => inputRef.current?.focus(), 100);
@@ -146,6 +245,10 @@ export default function AzmethAgentDashboard() {
       handleSubmit();
     }
   };
+
+  const inputPlaceholder = pendingInput
+    ? `Required input: ${pendingInput.label}${pendingInput.sensitive ? ' (secret)' : ''}`
+    : 'Ask Azmeth to navigate or run commands...';
 
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden font-sans relative">
@@ -232,6 +335,23 @@ export default function AzmethAgentDashboard() {
                       return null;
                     })}
                   </div>
+
+                  {isBot && msg.trace && msg.trace.length > 0 && (
+                    <div className="w-full rounded-xl border border-gray-200 bg-gray-50 px-3 py-2">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Execution Trace</p>
+                      <div className="space-y-1">
+                        {msg.trace.slice(-6).map((event, idx) => (
+                          <div key={`${msg.id}-trace-${idx}`} className="text-[11px] text-gray-600">
+                            <span className="font-semibold">Step {event.iteration}</span>
+                            <span className="mx-1">·</span>
+                            <span className="uppercase text-[10px] tracking-wide">{event.type.replace('_', ' ')}</span>
+                            {event.tool ? <span className="mx-1">· {event.tool}</span> : null}
+                            {event.summary ? <span className="mx-1">· {event.summary}</span> : null}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <span className="text-[10px] text-gray-400 font-medium px-1">
                      {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
@@ -280,13 +400,30 @@ export default function AzmethAgentDashboard() {
         )}
 
         <form onSubmit={e => handleSubmit(e)} className="relative group">
+          {pendingInput && (
+            <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+              <p className="text-[11px] font-semibold text-amber-800">{pendingInput.question}</p>
+              {pendingInput.reason ? <p className="text-[10px] text-amber-700 mt-1">{pendingInput.reason}</p> : null}
+              {pendingInput.sensitive ? <p className="text-[10px] text-amber-700 mt-1">This value will be treated as sensitive.</p> : null}
+            </div>
+          )}
+
+           <button 
+             type="button"
+             onClick={() => fileInputRef.current?.click()}
+             className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-xl flex items-center justify-center transition-all bg-gray-50 text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:scale-95"
+           >
+             <Paperclip size={18} />
+             <input type="file" ref={fileInputRef} onChange={handleFileUpload} className="hidden" />
+           </button>
+
            <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask Azmeth to navigate or run commands..."
-            className="w-full bg-white border border-gray-200 rounded-2xl py-4 pl-6 pr-14 text-[15px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none shadow-xl transition-all"
+            placeholder={inputPlaceholder}
+            className="w-full bg-white border border-gray-200 rounded-2xl py-4 pl-14 pr-14 text-[15px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none shadow-xl transition-all"
             rows={1}
             style={{ minHeight: '60px', maxHeight: '200px' }}
            />

@@ -101,17 +101,19 @@ export async function PATCH(req: NextRequest) {
   try {
     const db = createServerClient();
     const body = await req.json();
-    const { lead_id, system, ...updates } = body as { lead_id: string; system?: string } & Partial<ChatLead>;
+    const { lead_id, system, ...updates } = body as { lead_id: string; system?: string; stage?: string } & Partial<ChatLead>;
 
     if (!lead_id) {
       return NextResponse.json({ error: 'lead_id required' }, { status: 400 });
     }
 
     if (system === 'outbound') {
-       // Only allow setting status or similar
+       // Outbound updates
        const patch: Record<string, unknown> = {};
        if (updates.status === 'qualified') patch.qualification_status = 'qualified';
        if (updates.status === 'disqualified') patch.qualification_status = 'rejected';
+       if (updates.starred !== undefined) patch.starred = updates.starred;
+       if (typeof updates.stage === 'string' && updates.stage.trim()) patch.stage = updates.stage.trim();
        
        if (Object.keys(patch).length > 0) {
          const { error } = await db.from('outbound_leads').update(patch).eq('id', lead_id);
@@ -131,6 +133,81 @@ export async function PATCH(req: NextRequest) {
     if (error) throw error;
 
     return NextResponse.json({ ok: true });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const db = createServerClient();
+    const body = await req.json() as {
+      source?: 'inbound' | 'outbound';
+      full_name?: string;
+      email?: string;
+      company_name?: string | null;
+      role_title?: string | null;
+      channel?: string;
+      campaign_id?: string | null;
+    };
+
+    const source = body.source || 'inbound';
+    const email = typeof body.email === 'string' ? body.email.trim() : '';
+    const fullName = typeof body.full_name === 'string' ? body.full_name.trim() : '';
+    const [firstName, ...restName] = fullName.split(/\s+/).filter(Boolean);
+    const lastName = restName.join(' ') || null;
+    const now = new Date().toISOString();
+
+    if (!email) {
+      return NextResponse.json({ error: 'email is required' }, { status: 400 });
+    }
+
+    if (source === 'outbound') {
+      const { data, error } = await db.from('outbound_leads').insert({
+        campaign_id: body.campaign_id || null,
+        first_name: firstName || null,
+        last_name: lastName,
+        email,
+        company: body.company_name || null,
+        title: body.role_title || null,
+        source: 'manual',
+        raw_data: {
+          created_from: 'leads_dashboard_manual',
+          channel: body.channel || 'email',
+        },
+        stage: 'scraped',
+        qualification_status: 'pending',
+      }).select('id').single();
+
+      if (error) throw error;
+      return NextResponse.json({ ok: true, source: 'outbound', lead_id: data?.id });
+    }
+
+    const channel = typeof body.channel === 'string' && body.channel.trim()
+      ? body.channel.trim().toLowerCase()
+      : 'email';
+
+    const leadId = `manual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const { error } = await db.from('chat_leads').insert({
+      lead_id: leadId,
+      channel,
+      sender_name: fullName || email,
+      sender_contact: email,
+      latest_score: 0,
+      last_intent: null,
+      paused: false,
+      last_seen: now,
+      status: 'new',
+      agent_name: 'Azmeth Agent',
+      starred: false,
+      company_name: body.company_name || null,
+      role_title: body.role_title || null,
+    });
+
+    if (error) throw error;
+
+    return NextResponse.json({ ok: true, source: 'inbound', lead_id: leadId });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     return NextResponse.json({ error: msg }, { status: 500 });

@@ -13,7 +13,8 @@ export async function GET() {
     const { data: leads, error: leadsError } = await db
       .from('chat_leads')
       .select('*')
-      .order('last_seen', { ascending: false });
+      .order('last_seen', { ascending: false })
+      .limit(50); // Pagination scale
 
     if (leadsError) throw leadsError;
 
@@ -29,9 +30,14 @@ export async function GET() {
 
         const messages = ((msgs as ChatMessage[]) || []).reverse();
         const lastMsg = messages[messages.length - 1];
+        
+        // P2-4: Properly flatten the JSON nested content for the preview
+        const contentStr = lastMsg?.message?.content || 
+                           (lastMsg?.message as any)?.message?.content || '';
+        
         return {
           ...lead,
-          lastMessage: lastMsg?.message?.content?.slice(0, 120) || '',
+          lastMessage: contentStr.slice(0, 120),
           messageCount: messages.length,
         };
       })
@@ -71,9 +77,10 @@ export async function POST(req: NextRequest) {
     // 2. Update lead's last_seen
     await db.from('chat_leads').update({ last_seen: new Date().toISOString() }).eq('lead_id', lead_id);
 
-    // 3. Forward to n8n webhook to let the pipeline route the reply
+    // 3. Forward to channel
     const n8nUrl = process.env.N8N_WEBHOOK_URL;
     if (n8nUrl) {
+      // Use existing n8n pipeline if configured
       try {
         await fetch(`${n8nUrl}/manual-reply`, {
           method: 'POST',
@@ -82,8 +89,53 @@ export async function POST(req: NextRequest) {
           signal: AbortSignal.timeout(4000), // non-blocking, 4s timeout
         });
       } catch {
-        // n8n unavailable — message is still persisted; don't fail the request
         console.warn('[inbox] n8n webhook unavailable, message saved locally only');
+      }
+    } else {
+      // P2-2: Fallback to Meta API directly using platform_connections
+      try {
+        const platform = lead_id.startsWith('ig_') ? 'instagram' : 'whatsapp';
+        // Note: For a true production app you'd fetch the specific page/number associated with the lead.
+        // For this fallback, we get the first active connection.
+        const { data: conn } = await db.from('platform_connections')
+                                       .select('access_token, page_id')
+                                       .eq('platform', platform)
+                                       .eq('is_active', true)
+                                       .single();
+        if (conn && conn.access_token) {
+          const apiVersion = process.env.META_API_VERSION || 'v20.0';
+          const recipientId = lead_id.replace(/^ig_|^wa_/, ''); // Strip prefix
+          
+          let endpoint = '';
+          let body = {};
+          
+          if (platform === 'instagram') {
+            endpoint = `https://graph.facebook.com/${apiVersion}/${conn.page_id}/messages?access_token=${conn.access_token}`;
+            body = { recipient: { id: recipientId }, message: { text: text.trim() } };
+          } else {
+            // WhatsApp business API
+            endpoint = `https://graph.facebook.com/${apiVersion}/${conn.page_id}/messages`;
+            body = {
+              messaging_product: 'whatsapp',
+              recipient_type: 'individual',
+              to: recipientId,
+              type: 'text',
+              text: { body: text.trim() }
+            };
+          }
+          
+          await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(platform === 'whatsapp' ? { 'Authorization': `Bearer ${conn.access_token}` } : {})
+            },
+            body: JSON.stringify(body),
+            signal: AbortSignal.timeout(4000)
+          });
+        }
+      } catch (err) {
+        console.warn('[inbox] Meta Graph API fallback delivery failed: ', err);
       }
     }
 

@@ -148,7 +148,7 @@ export default function CampaignOverviewPage() {
         
         <div className="flex gap-2">
           {campaign.status === 'running' && (
-            <button className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-bold px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
+            <button onClick={fetchPipeline} className="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-bold px-4 py-2 rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
               <RefreshCw size={14} className="animate-spin text-gray-400" /> Processing
             </button>
           )}

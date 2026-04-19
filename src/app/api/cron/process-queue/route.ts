@@ -18,11 +18,13 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 export async function GET(request: NextRequest) {
   // ── Cron secret guard ──────────────────────────────────────────────────────
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret) {
-    const authHeader = request.headers.get('authorization');
-    if (authHeader !== `Bearer ${cronSecret}`) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  if (!cronSecret) {
+    return NextResponse.json({ error: 'Server Configuration Error: CRON_SECRET missing' }, { status: 500 });
+  }
+
+  const authHeader = request.headers.get('authorization');
+  if (authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {

@@ -7,6 +7,7 @@ import {
   Star, StarOff, CircleCheck, Clock,
   Calendar, X, Check, RefreshCw, AlertCircle, MoreHorizontal
 } from 'lucide-react';
+import { toast } from 'sonner';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -112,6 +113,8 @@ export default function LeadsCRMPage() {
   const [sourceFilter, setSourceFilter] = useState<'all' | 'inbound' | 'outbound'>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [channelFilter, setChannelFilter] = useState<string>('all');
+  const [scoreMin, setScoreMin] = useState<string>('all');
+  const [dateRange, setDateRange] = useState<string>('all');
   
   const [activeLeadId, setActiveLeadId] = useState<string | null>(null);
 
@@ -123,6 +126,12 @@ export default function LeadsCRMPage() {
       if (sourceFilter !== 'all') params.set('source', sourceFilter);
       if (statusFilter !== 'all') params.set('stage', statusFilter);
       if (channelFilter !== 'all') params.set('channel', channelFilter);
+      if (scoreMin !== 'all') params.set('score_min', scoreMin);
+      if (dateRange !== 'all') {
+        const dateParam = new Date();
+        dateParam.setDate(dateParam.getDate() - Number(dateRange));
+        params.set('date_from', dateParam.toISOString());
+      }
       if (search.trim()) params.set('search', search.trim());
       
       const res = await fetch(`/api/leads/unified?${params}`);
@@ -136,13 +145,41 @@ export default function LeadsCRMPage() {
     } finally {
       setLoading(false);
     }
-  }, [sourceFilter, statusFilter, channelFilter, search]);
+  }, [sourceFilter, statusFilter, channelFilter, scoreMin, dateRange, search]);
 
   // Debounced search
   useEffect(() => {
     const timer = setTimeout(() => { fetchLeads(); }, 300);
     return () => clearTimeout(timer);
   }, [fetchLeads]);
+
+  const exportCSV = () => {
+    if (!leads.length) return;
+    const headers = ["ID", "Name", "Company", "Email", "Role", "Source", "Channel", "Stage", "Score", "Added"];
+    const rows = leads.map(l => [
+      l.id,
+      displayName(l),
+      l.company || '',
+      l.email || l.contact_id || '',
+      l.role || '',
+      l.source,
+      l.channel,
+      l.stage,
+      l.score.toString(),
+      new Date(l.created_at).toISOString()
+    ]);
+    
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + [headers.join(","), ...rows.map(e => e.map(field => `"${field}"`).join(","))].join("\\n");
+      
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `azmeth-leads-${new Date().toISOString().slice(0,10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const patch = async (id: string, updates: Partial<UnifiedLead>) => {
     // Optimistic array update
@@ -152,17 +189,98 @@ export default function LeadsCRMPage() {
     const lead = leads.find(l => l.id === id);
     if (!lead) return;
 
-    // Route patch to correct endpoint based on source
-    const endpoint = lead.source === 'inbound' ? '/api/leads' : `/api/outbound/${updates.stage || 'qualify'}`;
-    const payload = lead.source === 'inbound' 
-      ? JSON.stringify({ lead_id: id, ...updates })
-      : JSON.stringify({ lead_id: id }); // For outbound, we just trigger stage changes for now
+    if (lead.source === 'inbound') {
+      await fetch('/api/leads', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead_id: id, system: 'inbound', ...updates }),
+      });
+      return;
+    }
 
-    await fetch(endpoint, {
-      method: lead.source === 'inbound' ? 'PATCH' : 'POST',
+    const stage = typeof updates.stage === 'string' ? updates.stage : null;
+    const outboundTriggerByStage: Record<string, 'research' | 'qualify' | 'personalise' | 'send'> = {
+      scraped: 'research',
+      qualify: 'qualify',
+      qualified: 'personalise',
+      personalise: 'personalise',
+      sent: 'send',
+      replied: 'send',
+    };
+
+    if (stage && outboundTriggerByStage[stage]) {
+      const trigger = outboundTriggerByStage[stage];
+      if (trigger === 'send') {
+        await fetch('/api/outbound/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lead_id: id }),
+        });
+      } else {
+        await fetch(`/api/outbound/${trigger}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ lead_id: id }),
+        });
+      }
+    }
+
+    await fetch('/api/leads', {
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: payload,
+      body: JSON.stringify({ lead_id: id, system: 'outbound', ...updates }),
     });
+  };
+
+  const handleAddLead = async () => {
+    const fullName = window.prompt('Lead full name');
+    if (!fullName?.trim()) return;
+
+    const email = window.prompt('Lead email (required)');
+    if (!email?.trim()) return;
+
+    const company = window.prompt('Company name (optional)') || '';
+    const role = window.prompt('Role / title (optional)') || '';
+    const channel = (window.prompt('Channel: instagram | whatsapp | email | linkedin | voice', 'email') || 'email').toLowerCase();
+
+    try {
+      const res = await fetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          source: 'inbound',
+          full_name: fullName.trim(),
+          email: email.trim(),
+          company_name: company.trim() || null,
+          role_title: role.trim() || null,
+          channel,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to create lead');
+
+      toast.success('Lead added');
+      fetchLeads();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to add lead';
+      toast.error(msg);
+    }
+  };
+
+  const handleBookMeeting = async (lead: UnifiedLead) => {
+    try {
+      if (lead.source === 'inbound') {
+        await patch(lead.id, { stage: 'meeting_set' as LeadStatus });
+      } else {
+        await patch(lead.id, { stage: 'replied' as LeadStatus });
+      }
+      toast.success('Lead moved to meeting booked state');
+      fetchLeads();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to update meeting state';
+      toast.error(msg);
+    }
   };
 
   const activeLead = leads.find(l => l.id === activeLeadId);
@@ -182,7 +300,10 @@ export default function LeadsCRMPage() {
               <button onClick={fetchLeads} className="p-2 border border-gray-200 rounded-xl hover:bg-gray-50" title="Refresh">
                 <RefreshCw size={14} className="text-gray-400" />
               </button>
-              <button className="flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-gray-800 transition-colors shadow-sm">
+              <button onClick={exportCSV} className="p-2 border border-gray-200 rounded-xl hover:bg-gray-50 text-gray-500 text-sm font-semibold pr-4">
+                Export CSV
+              </button>
+              <button onClick={handleAddLead} className="flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-4 py-2 rounded-xl hover:bg-gray-800 transition-colors shadow-sm">
                 <Plus size={15} /> Add Lead
               </button>
             </div>
@@ -228,6 +349,20 @@ export default function LeadsCRMPage() {
               <option value="all">All Channels</option>
               {(Object.entries(CHANNEL_MAP) as [string, typeof CHANNEL_MAP[string]][]).map(([k, v]) =>
                 <option key={k} value={k}>{v.label}</option>)}
+            </select>
+            <select value={scoreMin} onChange={e => setScoreMin(e.target.value)}
+              className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-700 focus:outline-none focus:border-gray-400 appearance-none cursor-pointer">
+              <option value="all">Any Score</option>
+              <option value="50">Score 50+</option>
+              <option value="80">Score 80+</option>
+              <option value="90">Score 90+</option>
+            </select>
+            <select value={dateRange} onChange={e => setDateRange(e.target.value)}
+              className="bg-white border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-700 focus:outline-none focus:border-gray-400 appearance-none cursor-pointer">
+              <option value="all">Any Added Date</option>
+              <option value="1">Last 24h</option>
+              <option value="7">Last 7 Days</option>
+              <option value="30">Last 30 Days</option>
             </select>
           </div>
         </div>
@@ -378,7 +513,7 @@ export default function LeadsCRMPage() {
           </div>
 
           <div className="p-5 space-y-2">
-            <button className="w-full py-2.5 bg-gray-900 text-white text-xs font-bold rounded-xl hover:bg-gray-800 transition-colors">Book Meeting</button>
+            <button onClick={() => handleBookMeeting(activeLead)} className="w-full py-2.5 bg-gray-900 text-white text-xs font-bold rounded-xl hover:bg-gray-800 transition-colors">Book Meeting</button>
             {activeLead.source === 'inbound' && (
               <a href={`/dashboard/inbox`} className="block w-full py-2.5 border border-gray-200 text-gray-700 text-xs font-bold rounded-xl hover:bg-gray-50 transition-colors text-center">
                 View Conversation

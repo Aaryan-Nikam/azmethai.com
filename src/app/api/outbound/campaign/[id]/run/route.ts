@@ -5,7 +5,7 @@
  * Used to re-trigger stuck leads or kick off the pipeline for a full campaign.
  *
  * Body: {
- *   stage?: 'research' | 'qualify' | 'personalise'   // default: 'research'
+ *   stage?: 'research' | 'qualify' | 'personalise' | 'send'   // default: 'research'
  *   limit?: number                                     // default: 50
  *   skip_first?: number                                // default: 0
  * }
@@ -18,13 +18,14 @@ const STAGE_FILTER: Record<string, string> = {
   research: 'scraped',
   qualify: 'researched',
   personalise: 'qualified',
+  send: 'personalised',
 };
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const campaignId = params.id;
     const body = await req.json().catch(() => ({})) as {
-      stage?: 'research' | 'qualify' | 'personalise';
+      stage?: 'research' | 'qualify' | 'personalise' | 'send';
       limit?: number;
       skip_first?: number;
     };
@@ -57,7 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       .order('created_at', { ascending: true })
       .range(skipFirst, skipFirst + limit - 1);
 
-    // For qualify: also include rejected leads that haven't been scored yet
+    // For qualify: also include leads that haven't been scored yet
     // (they may have been through research but not yet scored)
     if (stage === 'qualify') {
       query = db
@@ -66,6 +67,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         .eq('campaign_id', campaignId)
         .in('stage', ['researched'])
         .eq('qualification_status', 'pending')
+        .order('created_at', { ascending: true })
+        .range(skipFirst, skipFirst + limit - 1);
+    }
+
+    // For send: include personalised + ready_to_send leads
+    if (stage === 'send') {
+      query = db
+        .from('outbound_leads')
+        .select('id')
+        .eq('campaign_id', campaignId)
+        .in('stage', ['personalised', 'ready_to_send'])
         .order('created_at', { ascending: true })
         .range(skipFirst, skipFirst + limit - 1);
     }

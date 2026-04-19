@@ -1,9 +1,24 @@
-import React from "react";
+'use client';
+
+import React, { useState } from "react";
 import Link from "next/link";
 import { Topbar } from "@/components/layout/Topbar";
 import { AppShell } from "@/components/layout/AppShell";
+import { toast } from 'sonner';
 
 export default function IntegrationsPage() {
+  const [waitlisted, setWaitlisted] = useState<{ linkedin: boolean; whatsapp: boolean }>({
+    linkedin: false,
+    whatsapp: false,
+  });
+
+  const joinWaitlist = (product: 'linkedin' | 'whatsapp') => {
+    const email = window.prompt(`Enter your email to join the ${product === 'linkedin' ? 'LinkedIn' : 'WhatsApp Business'} beta waitlist`);
+    if (!email?.trim()) return;
+    setWaitlisted(prev => ({ ...prev, [product]: true }));
+    toast.success(`${product === 'linkedin' ? 'LinkedIn' : 'WhatsApp Business'} beta waitlist joined`);
+  };
+
   return (
     <AppShell>
       <div className="min-h-screen bg-[#f7f8fa] text-[#111827]">
@@ -62,8 +77,15 @@ export default function IntegrationsPage() {
                   Automate outbound connection requests and inbox replies.
                 </p>
               </div>
-              <button disabled className="w-full px-4 py-2 bg-[#f3f4f6] text-[#9ca3af] rounded-lg font-medium cursor-not-allowed">
-                Waitlist
+              <button
+                onClick={() => joinWaitlist('linkedin')}
+                className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${
+                  waitlisted.linkedin
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'bg-[#f3f4f6] text-[#4b5563] hover:bg-[#e5e7eb]'
+                }`}
+              >
+                {waitlisted.linkedin ? 'Joined Waitlist' : 'Join Waitlist'}
               </button>
             </div>
 
@@ -81,8 +103,15 @@ export default function IntegrationsPage() {
                   Agentic responses to your WhatsApp Business number.
                 </p>
               </div>
-              <button disabled className="w-full px-4 py-2 bg-[#f3f4f6] text-[#9ca3af] rounded-lg font-medium cursor-not-allowed">
-                Waitlist
+              <button
+                onClick={() => joinWaitlist('whatsapp')}
+                className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${
+                  waitlisted.whatsapp
+                    ? 'bg-green-50 text-green-700 border border-green-200'
+                    : 'bg-[#f3f4f6] text-[#4b5563] hover:bg-[#e5e7eb]'
+                }`}
+              >
+                {waitlisted.whatsapp ? 'Joined Waitlist' : 'Join Waitlist'}
               </button>
             </div>
 

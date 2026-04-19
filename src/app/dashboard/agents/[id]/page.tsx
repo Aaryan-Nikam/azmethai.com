@@ -1,16 +1,58 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Editor } from '@monaco-editor/react';
-import { Save, Sliders, MessageSquare, Play, RefreshCw, Zap, Cpu, Braces, Code, Bot } from 'lucide-react';
+import { Save, MessageSquare, Zap, Cpu, Braces, Code } from 'lucide-react';
+import { toast } from 'sonner';
 
 export default function AgentEditorMaster() {
   const [activeTab, setActiveTab] = useState<'prompt' | 'variables'>('prompt');
   const [temperature, setTemperature] = useState(0.7);
   const [isTestDockOpen, setTestDockOpen] = useState(true);
+  const [computeMode, setComputeMode] = useState<'byok' | 'managed'>('byok');
+  const [payloadInput, setPayloadInput] = useState('');
 
   const defaultPrompt = `// System Directives for Azmeth Inbound SDR\n// Do NOT remove the routing logic hooks.\n\nexport const AgentDirective = {\n  role: "Highly technical Inbound SDR",\n  tone: "Professional, sharp, and concise",\n  objective: "Parse user requirements and explicitly route to the Compliance Dashboard if risk detected.",\n  fallback: "Always escalate to a human manager if intent is undefined",\n};`;
+  const defaultVariables = `{
+  "company_name": "Azmeth AI",
+  "support_email": "ops@azmeth.ai",
+  "routing_guardrails": ["compliance", "escalation", "human_handoff"]
+}`;
+  const [promptDraft, setPromptDraft] = useState(defaultPrompt);
+  const [variablesDraft, setVariablesDraft] = useState(defaultVariables);
+  const [consoleLogs, setConsoleLogs] = useState([
+    { id: 1, role: 'user' as const, timestamp: '10:45:01', message: 'Hello, I need help with my compliance routing.' },
+    { id: 2, role: 'agent' as const, timestamp: '10:45:02', message: 'Yes absolutely! I can help you set up Azmeth AI compliance routing. What specific regulations are you looking to enforce?' },
+  ]);
+
+  const handleCommit = () => {
+    localStorage.setItem('azmeth_agent_prompt_draft', promptDraft);
+    localStorage.setItem('azmeth_agent_variables_draft', variablesDraft);
+    localStorage.setItem('azmeth_agent_compute_mode', computeMode);
+    toast.success('Agent changes committed to local draft storage');
+  };
+
+  const sendPacket = () => {
+    const payload = payloadInput.trim();
+    if (!payload) {
+      toast.error('Enter a payload before sending');
+      return;
+    }
+    const timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    setConsoleLogs(prev => [
+      ...prev.slice(-10),
+      { id: Date.now(), role: 'user', timestamp, message: payload },
+      {
+        id: Date.now() + 1,
+        role: 'agent',
+        timestamp,
+        message: 'Packet acknowledged. Validation passed and execution request queued.',
+      },
+    ]);
+    setPayloadInput('');
+    toast.success('Packet sent to the live console');
+  };
 
   return (
     <div className="h-full w-full flex flex-col relative z-20">
@@ -41,9 +83,9 @@ export default function AgentEditorMaster() {
               ))}
             </div>
           </div>
-          <button className="flex items-center gap-2 px-4 py-1.5 rounded bg-[#00E5FF] hover:bg-cyan-400 text-black text-xs font-bold transition shadow-[0_0_15px_rgba(0,229,255,0.4)]">
-            <Save size={12} /> Commit Changes
-          </button>
+	          <button onClick={handleCommit} className="flex items-center gap-2 px-4 py-1.5 rounded bg-[#00E5FF] hover:bg-cyan-400 text-black text-xs font-bold transition shadow-[0_0_15px_rgba(0,229,255,0.4)]">
+	            <Save size={12} /> Commit Changes
+	          </button>
         </div>
       </header>
 
@@ -67,15 +109,22 @@ export default function AgentEditorMaster() {
             </button>
           </div>
           
-          <div className="flex-1 relative">
-             <Editor 
-               height="100%" 
-               language="typescript" 
-               theme="vs-dark" 
-               value={defaultPrompt}
-               options={{
-                 minimap: { enabled: false },
-                 fontSize: 13,
+	          <div className="flex-1 relative">
+	             <Editor 
+	               height="100%" 
+	               language={activeTab === 'prompt' ? 'typescript' : 'json'}
+	               theme="vs-dark" 
+	               value={activeTab === 'prompt' ? promptDraft : variablesDraft}
+	               onChange={(value = '') => {
+	                 if (activeTab === 'prompt') {
+	                   setPromptDraft(value);
+	                 } else {
+	                   setVariablesDraft(value);
+	                 }
+	               }}
+	               options={{
+	                 minimap: { enabled: false },
+	                 fontSize: 13,
                  fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                  padding: { top: 20 },
                  scrollBeyondLastLine: false,
@@ -100,17 +149,25 @@ export default function AgentEditorMaster() {
           </div>
           
           <div className="p-4 space-y-6 overflow-y-auto">
-             <div>
-                <label className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest mb-2 block">Compute Router</label>
-                <div className="p-1 bg-[#050505] rounded-lg border border-[var(--border)] flex">
-                   <button className="flex-1 py-1.5 bg-[#1F1F1F] rounded-md text-xs font-mono border border-white/10 shadow-lg text-white flex justify-center items-center gap-2">
-                     <Zap size={12} className="text-[#00E5FF]" /> BYOK (Live)
-                   </button>
-                   <button className="flex-1 py-1.5 text-xs font-mono text-[var(--text-secondary)] hover:text-white transition">
-                     Managed
-                   </button>
-                </div>
-             </div>
+	             <div>
+	                <label className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest mb-2 block">Compute Router</label>
+	                <div className="p-1 bg-[#050505] rounded-lg border border-[var(--border)] flex">
+	                   <button onClick={() => setComputeMode('byok')} className={`flex-1 py-1.5 rounded-md text-xs font-mono border shadow-lg flex justify-center items-center gap-2 transition-colors ${
+	                     computeMode === 'byok'
+	                       ? 'bg-[#1F1F1F] border-white/10 text-white'
+	                       : 'bg-transparent border-transparent text-[var(--text-secondary)] hover:text-white'
+	                   }`}>
+	                     <Zap size={12} className="text-[#00E5FF]" /> BYOK (Live)
+	                   </button>
+	                   <button onClick={() => setComputeMode('managed')} className={`flex-1 py-1.5 rounded-md text-xs font-mono border shadow-lg flex justify-center items-center gap-2 transition-colors ${
+	                     computeMode === 'managed'
+	                       ? 'bg-[#1F1F1F] border-white/10 text-white'
+	                       : 'bg-transparent border-transparent text-[var(--text-secondary)] hover:text-white'
+	                   }`}>
+	                     Managed
+	                   </button>
+	                </div>
+	             </div>
 
              <div className="space-y-3">
                <div className="flex justify-between items-center">
@@ -165,46 +222,33 @@ export default function AgentEditorMaster() {
               </button>
             </div>
 
-            <div className="flex-1 flex overflow-hidden">
-               <div className="flex-1 p-4 overflow-y-auto space-y-4 font-mono text-xs">
-                 <div className="flex gap-4 opacity-50">
-                   <span className="text-[9px] mt-0.5 w-16 text-right shrink-0">10:45:01</span>
-                   <div className="flex-1">
-                     <span className="text-[#9D4EDD] font-bold">USER_HOOK {">>>"}</span> Hello, I need help with my compliance routing.
-                   </div>
-                 </div>
-                 
-                 <div className="flex gap-4">
-                   <span className="text-[9px] mt-0.5 w-16 text-right shrink-0 text-[var(--text-muted)]">10:45:02</span>
-                   <div className="flex-1 flex flex-col gap-1">
-                     <div><span className="text-[#00E5FF] font-bold">AGENT_RSP {"<<<"}</span> Yes absolutely! I can help you set up Azmeth AI compliance routing. What specific regulations are you looking to enforce?</div>
-                     <div className="flex items-center gap-2 mt-1">
-                       <div className="flex items-center gap-0.5">
-                         {[1,2,3,4,3,2,1].map((h, i) => (
-                           <motion.div 
-                             key={i} 
-                             animate={{ height: [Math.random() * 8 + 4, Math.random() * 8 + 4] }} 
-                             transition={{ repeat: Infinity, duration: 0.2 }} 
-                             className="w-1 bg-[#00E5FF] rounded-full" 
-                           />
-                         ))}
-                       </div>
-                       <span className="text-[9px] text-[var(--text-muted)]">STREAMING TOKENS...</span>
-                     </div>
-                   </div>
-                 </div>
-               </div>
+	            <div className="flex-1 flex overflow-hidden">
+	               <div className="flex-1 p-4 overflow-y-auto space-y-4 font-mono text-xs">
+	                 {consoleLogs.map(log => (
+	                   <div key={log.id} className={`flex gap-4 ${log.role === 'user' ? 'opacity-60' : ''}`}>
+	                     <span className="text-[9px] mt-0.5 w-16 text-right shrink-0 text-[var(--text-muted)]">{log.timestamp}</span>
+	                     <div className="flex-1">
+	                       <span className={`font-bold ${log.role === 'agent' ? 'text-[#00E5FF]' : 'text-[#9D4EDD]'}`}>
+	                         {log.role === 'agent' ? 'AGENT_RSP <<< ' : 'USER_HOOK >>> '}
+	                       </span>
+	                       {log.message}
+	                     </div>
+	                   </div>
+	                 ))}
+	               </div>
 
-               <div className="w-[300px] border-l border-[var(--border)] bg-[#050505] p-4 flex flex-col">
-                  <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-widest mb-3">Payload Injector</span>
-                  <textarea 
-                    placeholder="Enter raw JSON hook or message string..."
-                    className="flex-1 bg-[#111111] border border-[var(--border)] rounded text-xs text-[#E5E5E5] font-mono p-3 resize-none focus:border-[#00E5FF] outline-none"
-                  />
-                  <button className="mt-3 w-full py-2 bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/30 rounded font-bold text-xs uppercase tracking-widest hover:bg-[#00E5FF] hover:text-black transition shadow-[0_0_15px_rgba(0,229,255,0.2)]">
-                    Send Packet
-                  </button>
-               </div>
+	               <div className="w-[300px] border-l border-[var(--border)] bg-[#050505] p-4 flex flex-col">
+	                  <span className="text-[10px] uppercase font-bold text-[var(--text-muted)] tracking-widest mb-3">Payload Injector</span>
+	                  <textarea 
+	                    value={payloadInput}
+	                    onChange={e => setPayloadInput(e.target.value)}
+	                    placeholder="Enter raw JSON hook or message string..."
+	                    className="flex-1 bg-[#111111] border border-[var(--border)] rounded text-xs text-[#E5E5E5] font-mono p-3 resize-none focus:border-[#00E5FF] outline-none"
+	                  />
+	                  <button onClick={sendPacket} className="mt-3 w-full py-2 bg-[#00E5FF]/10 text-[#00E5FF] border border-[#00E5FF]/30 rounded font-bold text-xs uppercase tracking-widest hover:bg-[#00E5FF] hover:text-black transition shadow-[0_0_15px_rgba(0,229,255,0.2)]">
+	                    Send Packet
+	                  </button>
+	               </div>
             </div>
           </motion.div>
         )}

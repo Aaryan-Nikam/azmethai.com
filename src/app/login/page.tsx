@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Bot, Loader2, AlertCircle, Chrome } from 'lucide-react';
+import { Bot, Loader2, AlertCircle, Globe } from 'lucide-react';
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
@@ -64,7 +64,7 @@ export default function LoginPage() {
             {loading ? (
               <Loader2 size={18} className="animate-spin text-gray-500" />
             ) : (
-              <Chrome size={18} className="text-gray-700" />
+              <Globe size={18} className="text-gray-700" />
             )}
             {loading ? 'Signing in…' : 'Continue with Google'}
           </button>

@@ -2,7 +2,6 @@
 
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import '../globals.css'
 
 const STEPS = [
   'Select Role Template',

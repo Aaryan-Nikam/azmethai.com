@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import {
   ChevronDown, ChevronRight, Plus, Search, MoreHorizontal, X,
   Zap, BarChart2, Play, Pause, Settings, ExternalLink,
@@ -10,7 +12,7 @@ import {
   Camera, Hash, Mail, Link2, TrendingUp, RefreshCw,
   Video, Megaphone, Layers, Package, SlidersHorizontal,
   ArrowUpRight, Activity, Inbox, Star, Cpu,
-  BrainCircuit, Filter, PenTool, SearchCheck, Rocket
+  Filter, Pen, Rocket
 } from 'lucide-react';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -44,6 +46,12 @@ interface System {
   badgeColor: string;
   components: Comp[];
   kpis: { label: string; value: string; trend?: string; up?: boolean }[];
+}
+
+interface MenuItem {
+  label: string;
+  action: () => void;
+  danger?: boolean;
 }
 
 // ─── Data ──────────────────────────────────────────────────────────────────────
@@ -93,10 +101,10 @@ const SYSTEMS: System[] = [
       { label: 'Reply Rate', value: '—', trend: '', up: true },
     ],
     components: [
-      { id: 'lead-scraper', name: 'Lead Scraper', type: 'Scraper Agent', icon: SearchCheck, health: 'healthy', lastRun: '—', metric: '0', metricLabel: 'leads imported', href: '/dashboard/outbound', tags: ['apify', 'crunchbase'] },
-      { id: 'research-agent', name: 'Research Agent', type: 'AI Agent', icon: BrainCircuit, health: 'healthy', lastRun: '—', metric: '0', metricLabel: 'profiles researched', href: '/dashboard/outbound', tags: ['gpt-4o'] },
+      { id: 'lead-scraper', name: 'Lead Scraper', type: 'Scraper Agent', icon: Search, health: 'healthy', lastRun: '—', metric: '0', metricLabel: 'leads imported', href: '/dashboard/outbound', tags: ['apify', 'crunchbase'] },
+      { id: 'research-agent', name: 'Research Agent', type: 'AI Agent', icon: Cpu, health: 'healthy', lastRun: '—', metric: '0', metricLabel: 'profiles researched', href: '/dashboard/outbound', tags: ['gpt-4o'] },
       { id: 'qualification-engine', name: 'Qualification Engine', type: 'Logic', icon: Filter, health: 'healthy', lastRun: '—', metric: '0', metricLabel: 'leads qualified', href: '/dashboard/outbound', tags: ['rules'] },
-      { id: 'personalisation-agent', name: 'Personalisation Agent', type: 'AI Agent', icon: PenTool, health: 'healthy', lastRun: '—', metric: '0', metricLabel: 'copies written', href: '/dashboard/outbound', tags: ['claude-3-5'] },
+      { id: 'personalisation-agent', name: 'Personalisation Agent', type: 'AI Agent', icon: Pen, health: 'healthy', lastRun: '—', metric: '0', metricLabel: 'copies written', href: '/dashboard/outbound', tags: ['claude-3-5'] },
       { id: 'outbound-sender', name: 'Outbound Sender', type: 'Delivery', icon: Send, health: 'healthy', lastRun: '—', metric: '0', metricLabel: 'emails sent', href: '/dashboard/outbound', tags: ['gmail', 'instantly'] },
     ],
   },
@@ -160,13 +168,21 @@ const STATUS_CFG: Record<SysStatus, { label: string; color: string }> = {
 
 // ─── Context Menu ─────────────────────────────────────────────────────────────
 
-function ContextMenu({ items, onClose }: { items: string[]; onClose: () => void }) {
+function ContextMenu({ items, onClose }: { items: MenuItem[]; onClose: () => void }) {
   return (
     <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-xl shadow-2xl z-50 py-1.5 w-44 animate-in fade-in slide-in-from-top-1 duration-100">
       {items.map(item => (
-        <button key={item} onClick={onClose}
-          className="w-full text-left px-4 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors first:rounded-t-xl last:rounded-b-xl">
-          {item}
+        <button
+          key={item.label}
+          onClick={() => {
+            item.action();
+            onClose();
+          }}
+          className={`w-full text-left px-4 py-2 text-xs font-medium transition-colors first:rounded-t-xl last:rounded-b-xl ${
+            item.danger ? 'text-red-600 hover:bg-red-50' : 'text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          {item.label}
         </button>
       ))}
     </div>
@@ -175,12 +191,53 @@ function ContextMenu({ items, onClose }: { items: string[]; onClose: () => void 
 
 // ─── Component Row ─────────────────────────────────────────────────────────────
 
-function CompRow({ comp }: { comp: Comp }) {
+function CompRow({ comp, onRemove }: { comp: Comp; onRemove: (compId: string) => void }) {
+  const router = useRouter();
   const [menu, setMenu] = useState(false);
-  const hcfg = HEALTH_CFG[comp.health];
+  const [health, setHealth] = useState<Health>(comp.health);
+  const hcfg = HEALTH_CFG[health];
   const Icon = comp.icon;
-  const isSoon = comp.health === 'soon';
-  const isPaused = comp.health === 'paused';
+  const isSoon = health === 'soon';
+  const isPaused = health === 'paused';
+
+  const handleMenuAction = (action: string) => {
+    if (action === 'Configure') {
+      if (comp.href) {
+        router.push(comp.href);
+      } else {
+        toast.info(`No configuration screen yet for ${comp.name}`);
+      }
+      return;
+    }
+
+    if (action === 'View Logs') {
+      router.push('/dashboard/monitoring');
+      return;
+    }
+
+    if (action === 'Restart') {
+      setHealth('healthy');
+      toast.success(`${comp.name} restarted`);
+      return;
+    }
+
+    if (action === 'Pause') {
+      setHealth('paused');
+      toast.info(`${comp.name} paused`);
+      return;
+    }
+
+    if (action === 'Enable') {
+      setHealth('healthy');
+      toast.success(`${comp.name} enabled`);
+      return;
+    }
+
+    if (action === 'Remove') {
+      onRemove(comp.id);
+      toast.success(`${comp.name} removed`);
+    }
+  };
 
   return (
     <div className={`group relative grid items-center border-b border-gray-100 last:border-0 transition-all
@@ -217,7 +274,7 @@ function CompRow({ comp }: { comp: Comp }) {
       {/* Health */}
       <div className="py-3.5 pr-4">
         <div className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${hcfg.text}`}>
-          <div className={`w-2 h-2 rounded-full ${hcfg.dot} ${comp.health === 'healthy' ? 'animate-pulse' : ''} ring-2 ${hcfg.ring}`} />
+          <div className={`w-2 h-2 rounded-full ${hcfg.dot} ${health === 'healthy' ? 'animate-pulse' : ''} ring-2 ${hcfg.ring}`} />
           {hcfg.label}
         </div>
       </div>
@@ -239,10 +296,10 @@ function CompRow({ comp }: { comp: Comp }) {
       {/* Status pill */}
       <div className="py-3.5 pr-4">
         <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full border
-          ${comp.health === 'healthy' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-          : comp.health === 'paused' ? 'bg-gray-50 text-gray-500 border-gray-200'
+          ${health === 'healthy' ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+          : health === 'paused' ? 'bg-gray-50 text-gray-500 border-gray-200'
           : 'bg-gray-50 text-gray-400 border-gray-200'}`}>
-          {comp.health === 'healthy' ? '● Running' : comp.health === 'paused' ? '○ Paused' : '◌ Soon'}
+          {health === 'healthy' ? '● Running' : health === 'paused' ? '○ Paused' : '◌ Soon'}
         </span>
       </div>
 
@@ -261,7 +318,18 @@ function CompRow({ comp }: { comp: Comp }) {
             className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-gray-200 rounded-lg text-gray-400 hover:text-gray-700 transition-all">
             <MoreHorizontal size={14} />
           </button>
-          {menu && <ContextMenu items={['Configure', 'View Logs', 'Restart', isPaused ? 'Enable' : 'Pause', 'Remove']} onClose={() => setMenu(false)} />}
+          {menu && (
+            <ContextMenu
+              items={[
+                { label: 'Configure', action: () => handleMenuAction('Configure') },
+                { label: 'View Logs', action: () => handleMenuAction('View Logs') },
+                { label: 'Restart', action: () => handleMenuAction('Restart') },
+                { label: isPaused ? 'Enable' : 'Pause', action: () => handleMenuAction(isPaused ? 'Enable' : 'Pause') },
+                { label: 'Remove', action: () => handleMenuAction('Remove'), danger: true },
+              ]}
+              onClose={() => setMenu(false)}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -270,7 +338,22 @@ function CompRow({ comp }: { comp: Comp }) {
 
 // ─── System Section ────────────────────────────────────────────────────────────
 
-function SystemSection({ sys }: { sys: System }) {
+function SystemSection({
+  sys,
+  onAddComponent,
+  onDuplicateSystem,
+  onArchiveSystem,
+  onDeleteSystem,
+  onRemoveComponent,
+}: {
+  sys: System;
+  onAddComponent: (systemId: string) => void;
+  onDuplicateSystem: (systemId: string) => void;
+  onArchiveSystem: (systemId: string) => void;
+  onDeleteSystem: (systemId: string) => void;
+  onRemoveComponent: (systemId: string, componentId: string) => void;
+}) {
+  const router = useRouter();
   const [open, setOpen] = useState(sys.status === 'active');
   const [menu, setMenu] = useState(false);
   const Icon = sys.icon;
@@ -349,7 +432,26 @@ function SystemSection({ sys }: { sys: System }) {
               className="p-2 hover:bg-gray-100 rounded-xl text-gray-400 hover:text-gray-700 transition-colors">
               <MoreHorizontal size={15} />
             </button>
-            {menu && <ContextMenu items={['Settings', 'Duplicate', 'Archive', 'Delete']} onClose={() => setMenu(false)} />}
+            {menu && (
+              <ContextMenu
+                items={[
+                  {
+                    label: 'Settings',
+                    action: () => {
+                      if (sys.status === 'active') {
+                        router.push(`/dashboard/systems/${sys.id}`);
+                      } else {
+                        toast.info('This system is not active yet');
+                      }
+                    },
+                  },
+                  { label: 'Duplicate', action: () => onDuplicateSystem(sys.id) },
+                  { label: 'Archive', action: () => onArchiveSystem(sys.id) },
+                  { label: 'Delete', action: () => onDeleteSystem(sys.id), danger: true },
+                ]}
+                onClose={() => setMenu(false)}
+              />
+            )}
           </div>
         </div>
       </div>
@@ -372,12 +474,19 @@ function SystemSection({ sys }: { sys: System }) {
 
           {/* Rows */}
           {sys.components.map(comp => (
-            <CompRow key={comp.id} comp={comp} />
+            <CompRow
+              key={comp.id}
+              comp={comp}
+              onRemove={(componentId) => onRemoveComponent(sys.id, componentId)}
+            />
           ))}
 
           {/* Add row */}
           {sys.status === 'active' && (
-            <button className="w-full flex items-center gap-2.5 pl-12 pr-6 py-3 text-xs font-semibold text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-all border-t border-dashed border-gray-200 group/add">
+            <button
+              onClick={() => onAddComponent(sys.id)}
+              className="w-full flex items-center gap-2.5 pl-12 pr-6 py-3 text-xs font-semibold text-gray-400 hover:text-blue-600 hover:bg-blue-50/50 transition-all border-t border-dashed border-gray-200 group/add"
+            >
               <Plus size={13} className="group-hover/add:text-blue-500 transition-colors" />
               Add Component
             </button>
@@ -393,16 +502,103 @@ function SystemSection({ sys }: { sys: System }) {
 export default function SystemsHubPage() {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | SysStatus>('all');
+  const [systems, setSystems] = useState<System[]>(SYSTEMS);
 
-  const filtered = SYSTEMS.filter(s => {
+  const handleNewSystem = () => {
+    const name = window.prompt('Name your new system');
+    if (!name?.trim()) return;
+
+    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `system-${Date.now()}`;
+
+    setSystems(prev => [
+      {
+        id,
+        name: name.trim(),
+        tagline: 'New system. Add components to start orchestration.',
+        icon: Layers,
+        status: 'building',
+        railColor: 'bg-sky-500',
+        iconBg: 'bg-sky-50',
+        iconColor: 'text-sky-600',
+        badgeColor: 'text-sky-700 bg-sky-50 border-sky-200',
+        kpis: [{ label: 'Build Progress', value: '0%' }],
+        components: [],
+      },
+      ...prev,
+    ]);
+    toast.success('New system created');
+  };
+
+  const handleAddComponent = (systemId: string) => {
+    const componentName = window.prompt('Component name');
+    if (!componentName?.trim()) return;
+
+    setSystems(prev => prev.map(sys => {
+      if (sys.id !== systemId) return sys;
+
+      const newComponent: Comp = {
+        id: `${systemId}-${Date.now()}`,
+        name: componentName.trim(),
+        type: 'Custom Component',
+        icon: Wrench,
+        health: 'healthy',
+        lastRun: 'just now',
+        metric: '0',
+        metricLabel: 'events',
+        tags: ['custom'],
+      };
+
+      return {
+        ...sys,
+        components: [...sys.components, newComponent],
+      };
+    }));
+
+    toast.success('Component added');
+  };
+
+  const handleDuplicateSystem = (systemId: string) => {
+    setSystems(prev => {
+      const target = prev.find(s => s.id === systemId);
+      if (!target) return prev;
+      const clone: System = {
+        ...target,
+        id: `${target.id}-copy-${Date.now()}`,
+        name: `${target.name} Copy`,
+        components: target.components.map(c => ({ ...c, id: `${c.id}-copy-${Date.now()}` })),
+      };
+      return [clone, ...prev];
+    });
+    toast.success('System duplicated');
+  };
+
+  const handleArchiveSystem = (systemId: string) => {
+    setSystems(prev => prev.map(sys => sys.id === systemId ? { ...sys, status: 'planned' } : sys));
+    toast.info('System archived');
+  };
+
+  const handleDeleteSystem = (systemId: string) => {
+    setSystems(prev => prev.filter(sys => sys.id !== systemId));
+    toast.success('System deleted');
+  };
+
+  const handleRemoveComponent = (systemId: string, componentId: string) => {
+    setSystems(prev => prev.map(sys => (
+      sys.id === systemId
+        ? { ...sys, components: sys.components.filter(c => c.id !== componentId) }
+        : sys
+    )));
+  };
+
+  const filtered = systems.filter(s => {
     const q = search.toLowerCase();
     const matchQ = s.name.toLowerCase().includes(q) || s.tagline.toLowerCase().includes(q);
     const matchF = filter === 'all' || s.status === filter;
     return matchQ && matchF;
   });
 
-  const totalHealthy = SYSTEMS.flatMap(s => s.components).filter(c => c.health === 'healthy').length;
-  const totalComps = SYSTEMS.flatMap(s => s.components).length;
+  const totalHealthy = systems.flatMap(s => s.components).filter(c => c.health === 'healthy').length;
+  const totalComps = systems.flatMap(s => s.components).length;
 
   return (
     <div className="h-full overflow-y-auto bg-[#f7f8fa] font-sans">
@@ -414,18 +610,18 @@ export default function SystemsHubPage() {
             <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Systems Hub</h1>
             <p className="text-sm text-gray-400 mt-0.5">AI engines powering your revenue operations — configure, monitor, and launch.</p>
           </div>
-          <button className="flex items-center gap-2 bg-gray-900 text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:bg-gray-800 transition-colors shadow-sm">
+          <button onClick={handleNewSystem} className="flex items-center gap-2 bg-gray-900 text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:bg-gray-800 transition-colors shadow-sm">
             <Plus size={15} /> New System
           </button>
         </div>
 
         {/* Stat tiles */}
         <div className="grid grid-cols-4 gap-4">
-          {[
-            { label: 'Systems Deployed',  val: `${SYSTEMS.filter(s => s.status === 'active').length} of ${SYSTEMS.length}`, icon: Cpu,          bg: 'bg-blue-50',   ic: 'text-blue-600' },
+              {[
+            { label: 'Systems Deployed',  val: `${systems.filter(s => s.status === 'active').length} of ${systems.length}`, icon: Cpu,          bg: 'bg-blue-50',   ic: 'text-blue-600' },
             { label: 'Components Running', val: `${totalHealthy} / ${totalComps}`,                                          icon: CheckCircle2,  bg: 'bg-emerald-50', ic: 'text-emerald-600' },
             { label: 'Pipeline This Month', val: '$142.5k',                                                                 icon: TrendingUp,    bg: 'bg-indigo-50',  ic: 'text-indigo-600' },
-            { label: 'In Development',      val: `${SYSTEMS.filter(s => s.status === 'building').length} system`,          icon: RefreshCw,     bg: 'bg-violet-50',  ic: 'text-violet-600' },
+            { label: 'In Development',      val: `${systems.filter(s => s.status === 'building').length} system`,          icon: RefreshCw,     bg: 'bg-violet-50',  ic: 'text-violet-600' },
           ].map(t => (
             <div key={t.label} className="bg-white border border-gray-200 rounded-2xl p-4 shadow-sm flex items-center gap-4 hover:shadow-md transition-shadow">
               <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${t.bg}`}>
@@ -466,11 +662,18 @@ export default function SystemsHubPage() {
         {/* Systems list */}
         <div className="space-y-3 relative">
           {filtered.map(sys => (
-            <div key={sys.id} className="relative">
-              {/* Left color rail */}
-              <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl ${sys.railColor} z-10`} />
-              <SystemSection sys={sys} />
-            </div>
+              <div key={sys.id} className="relative">
+                {/* Left color rail */}
+                <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-2xl ${sys.railColor} z-10`} />
+              <SystemSection
+                sys={sys}
+                onAddComponent={handleAddComponent}
+                onDuplicateSystem={handleDuplicateSystem}
+                onArchiveSystem={handleArchiveSystem}
+                onDeleteSystem={handleDeleteSystem}
+                onRemoveComponent={handleRemoveComponent}
+              />
+              </div>
           ))}
 
           {filtered.length === 0 && (

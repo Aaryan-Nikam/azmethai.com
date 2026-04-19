@@ -279,12 +279,7 @@ function CampaignCard({
               </div>
             ))}
           </div>
-          <div className="space-y-1.5">
-            <div className="flex items-center gap-2 text-[10px] text-gray-400 font-medium">
-              <span className="w-16">Open rate</span>
-              <FunnelBar value={camp.opened} max={camp.sent} color="bg-blue-400" />
-              <span className="font-bold text-gray-700">{openRate}%</span>
-            </div>
+          <div className="space-y-1.5 mt-2">
             <div className="flex items-center gap-2 text-[10px] text-gray-400 font-medium">
               <span className="w-16">Reply rate</span>
               <FunnelBar value={camp.replied} max={camp.sent} color="bg-emerald-400" />
@@ -297,6 +292,80 @@ function CampaignCard({
   );
 }
 
+// ─── New Campaign Modal ───────────────────────────────────────────────────────
+
+function NewCampaignModal({ onClose, onCreated, showToast }: { onClose: () => void, onCreated: () => void, showToast: (msg: string, type: 'success' | 'error') => void }) {
+  const [name, setName] = useState('');
+  const [framework, setFramework] = useState('AIDA');
+  const [busy, setBusy] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setBusy(true);
+    try {
+      const res = await fetch('/api/outbound/campaign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          config: { framework, channels: ['gmail'] },
+          icp: {}
+        }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed to create campaign');
+      showToast('Campaign created successfully', 'success');
+      onCreated();
+      onClose();
+    } catch (err: any) {
+      showToast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.95 }}
+        className="relative bg-white rounded-2xl shadow-2xl border border-gray-200 p-6 w-full max-w-md mx-4"
+      >
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-bold text-gray-900 text-lg">New Campaign</h3>
+          <button onClick={onClose} className="p-1 text-gray-400 hover:bg-gray-100 rounded-lg"><X size={16} /></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Campaign Name</label>
+            <input autoFocus required value={name} onChange={e => setName(e.target.value)}
+              placeholder="e.g. Q4 Enterprise SaaS Leads"
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gray-400" />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-gray-700 mb-1">Copywriting Framework</label>
+            <select value={framework} onChange={e => setFramework(e.target.value)}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-gray-400 bg-white">
+              <option value="AIDA">AIDA (Attention, Interest, Desire, Action)</option>
+              <option value="PAS">PAS (Problem, Agitation, Solution)</option>
+              <option value="BAB">BAB (Before, After, Bridge)</option>
+              <option value="Custom">Custom Direct</option>
+            </select>
+          </div>
+          <div className="pt-2 flex justify-end">
+            <button type="submit" disabled={busy || !name.trim()}
+              className="px-5 py-2 text-sm font-bold bg-gray-900 text-white rounded-xl hover:bg-black transition-colors disabled:opacity-50">
+              {busy ? 'Creating...' : 'Launch Campaign'}
+            </button>
+          </div>
+        </form>
+      </motion.div>
+    </div>
+  );
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function OutboundHQPage() {
@@ -305,6 +374,7 @@ export default function OutboundHQPage() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading]     = useState(true);
   const [toast, setToast]         = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showNewModal, setShowNewModal] = useState(false);
 
   const showToast = (message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
@@ -420,10 +490,10 @@ export default function OutboundHQPage() {
             </div>
             <p className="text-sm text-gray-400">Intent-driven B2B outreach — scrape, qualify, personalise, send.</p>
           </div>
-          <Link href="/dashboard/systems/outbound-engine"
+          <button onClick={() => setShowNewModal(true)}
             className="flex items-center gap-2 bg-gray-900 text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:bg-black transition-colors shadow-sm">
             <Plus size={15} /> New Campaign
-          </Link>
+          </button>
         </div>
 
         {/* Hero KPI block */}
@@ -545,8 +615,15 @@ export default function OutboundHQPage() {
 
       </div>
 
-      {/* Toast */}
+      {/* Modals & Toast */}
       <AnimatePresence>
+        {showNewModal && (
+          <NewCampaignModal 
+            onClose={() => setShowNewModal(false)}
+            onCreated={fetchCampaigns}
+            showToast={showToast}
+          />
+        )}
         {toast && <Toast message={toast.message} type={toast.type} />}
       </AnimatePresence>
     </div>

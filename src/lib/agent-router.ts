@@ -4,7 +4,7 @@
  * based on classified intent. Falls back to the catch-all (*) agent.
  */
 
-import { createServerClient } from '@/lib/supabase';
+import { SupabaseClient } from '@supabase/supabase-js';
 import { type IntentType } from '@/lib/intent-classifier';
 
 export interface RoutedAgent {
@@ -16,13 +16,12 @@ export interface RoutedAgent {
   tools_enabled: string[];
 }
 
-export async function routeToAgent(intent: IntentType): Promise<RoutedAgent | null> {
-  const db = createServerClient();
-
-  // Fetch all active agents ordered by priority desc
+export async function routeToAgent(intent: IntentType, userId: string, db: SupabaseClient): Promise<RoutedAgent | null> {
+  // Fetch all active agents ordered by priority desc for this tenant
   const { data: agents, error } = await db
     .from('agent_registry')
     .select('id, name, specializations, system_prompt, model, temperature, tools_enabled, priority')
+    .eq('user_id', userId)
     .eq('is_active', true)
     .order('priority', { ascending: false });
 

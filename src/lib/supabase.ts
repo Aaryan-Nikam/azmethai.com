@@ -8,7 +8,7 @@ function getValidUrl(urls: (string | undefined)[]): string {
     if (!u.startsWith('http')) u = `https://${u}`;
     return u;
   }
-  return 'https://uruvtlrchjmnutgkanpl.supabase.co';
+  throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL in environment.");
 }
 
 function getValidKey(keys: (string | undefined)[]): string {
@@ -18,7 +18,7 @@ function getValidKey(keys: (string | undefined)[]): string {
     if (k === '' || k.includes('<') || k === 'your_supabase_key') continue;
     return k;
   }
-  return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVydXZ0bHJjaGptbnV0Z2thbnBsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQxMTgxNDQsImV4cCI6MjA4OTY5NDE0NH0.6BjES6k9f9CkTKef6o6532lhuQkEolBVpU2IBWyew2A';
+  throw new Error("Missing Supabase API key in environment.");
 }
 
 /**

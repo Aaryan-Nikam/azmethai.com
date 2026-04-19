@@ -15,6 +15,7 @@ import {
   triggerStage,
   CampaignConfig,
 } from '@/lib/outbound';
+import { resolveLatestDraftMessageIdForLead, sendOutboundMessageById } from '@/lib/outbound-email';
 
 // ─── Research ────────────────────────────────────────────────────────────────
 
@@ -35,7 +36,7 @@ export async function runResearch(lead_id: string): Promise<{ ok: boolean; summa
 
   if (leadErr || !lead) throw new Error(`Lead ${lead_id} not found`);
 
-  const doneStages = ['researched', 'qualified', 'personalised', 'sent', 'replied'];
+  const doneStages = ['researched', 'qualified', 'personalised', 'ready_to_send', 'sent', 'replied'];
   if (doneStages.includes(lead.stage)) return { ok: true, skipped: true };
 
   const { data: campaign } = await db
@@ -106,7 +107,7 @@ export async function runQualify(lead_id: string): Promise<{ ok: boolean; score?
 
   if (leadErr || !lead) throw new Error(`Lead ${lead_id} not found`);
 
-  const doneStages = ['qualified', 'personalised', 'sent', 'replied'];
+  const doneStages = ['qualified', 'personalised', 'ready_to_send', 'sent', 'replied'];
   if (doneStages.includes(lead.stage) && lead.qualification_status !== 'pending') {
     return { ok: true, skipped: true };
   }
@@ -201,7 +202,7 @@ export async function runPersonalise(lead_id: string): Promise<{ ok: boolean; me
   if (leadErr || !lead) throw new Error(`Lead ${lead_id} not found`);
 
   if (lead.qualification_status !== 'qualified') return { ok: false };
-  if (['personalised', 'sent', 'replied'].includes(lead.stage)) return { ok: true, skipped: true };
+  if (['personalised', 'ready_to_send', 'sent', 'replied'].includes(lead.stage)) return { ok: true, skipped: true };
 
   const { data: campaign } = await db.from('outbound_campaigns').select('config').eq('id', lead.campaign_id).single();
   const config = (campaign?.config ?? {}) as CampaignConfig;
@@ -240,6 +241,26 @@ export async function runPersonalise(lead_id: string): Promise<{ ok: boolean; me
 
   if (msgErr) throw msgErr;
 
-  await db.from('outbound_leads').update({ stage: 'personalised' }).eq('id', lead_id);
+  const autoSend = config.auto_send !== false;
+  await db.from('outbound_leads').update({ stage: autoSend ? 'personalised' : 'ready_to_send' }).eq('id', lead_id);
+  if (autoSend) await triggerStage('send', lead_id);
   return { ok: true, message_id: message?.id };
+}
+
+export async function runSend(lead_id: string): Promise<{ ok: boolean; message_id?: string; skipped?: boolean }> {
+  const db = createOutboundClient();
+  const { data: lead, error: leadErr } = await db
+    .from('outbound_leads')
+    .select('id, stage')
+    .eq('id', lead_id)
+    .single();
+
+  if (leadErr || !lead) throw new Error(`Lead ${lead_id} not found`);
+  if (['sent', 'replied'].includes(lead.stage)) return { ok: true, skipped: true };
+
+  const messageId = await resolveLatestDraftMessageIdForLead(lead_id);
+  if (!messageId) return { ok: true, skipped: true };
+
+  await sendOutboundMessageById(messageId);
+  return { ok: true, message_id: messageId };
 }

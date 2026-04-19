@@ -52,23 +52,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, note: 'job not found, ignoring' });
     }
 
+    const inputConfig = (job.input_config && typeof job.input_config === 'object')
+      ? (job.input_config as Record<string, unknown>)
+      : {};
+    const runtimeApifyKey = typeof inputConfig._azmeth_apify_api_key === 'string'
+      ? inputConfig._azmeth_apify_api_key
+      : undefined;
+    const { _azmeth_apify_api_key, ...sanitizedInputConfig } = inputConfig;
+
     // If the run failed, mark job as failed
     if (runStatus === 'FAILED' || runStatus === 'ABORTED') {
       await db
         .from('outbound_scraper_jobs')
-        .update({ status: 'failed' })
+        .update({ status: 'failed', input_config: sanitizedInputConfig })
         .eq('id', job.id);
 
       return NextResponse.json({ ok: true, status: 'marked_failed' });
     }
 
     // Fetch the full dataset from Apify
-    const items = await fetchApifyDataset(runId);
+    const items = await fetchApifyDataset(runId, runtimeApifyKey);
 
     if (!items.length) {
       await db
         .from('outbound_scraper_jobs')
-        .update({ status: 'finished', leads_imported: 0 })
+        .update({ status: 'finished', leads_imported: 0, input_config: sanitizedInputConfig })
         .eq('id', job.id);
 
       return NextResponse.json({ ok: true, leads_imported: 0 });
@@ -91,7 +99,7 @@ export async function POST(req: NextRequest) {
     for (const chunk of chunks) {
       const { data: inserted, error } = await db
         .from('outbound_leads')
-        .insert(chunk)
+        .upsert(chunk, { onConflict: 'identity_hash', ignoreDuplicates: true })
         .select('id');
 
       if (error) {
@@ -106,7 +114,7 @@ export async function POST(req: NextRequest) {
     // Update scraper job as finished
     await db
       .from('outbound_scraper_jobs')
-      .update({ status: 'finished', leads_imported: totalInserted })
+      .update({ status: 'finished', leads_imported: totalInserted, input_config: sanitizedInputConfig })
       .eq('id', job.id);
 
     // Auto-trigger research for each lead (fire-and-forget, staggered to avoid rate limits)

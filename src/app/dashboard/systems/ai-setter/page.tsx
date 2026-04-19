@@ -1,11 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
 import {
   Check, Plus, Search, FileText, X, ChevronRight,
-  BrainCircuit, Inbox, Users, BarChart2, Zap
+  Cpu, Inbox, Users, BarChart2, Zap
 } from 'lucide-react';
 
 const SETUP_KEY = 'azmeth_ai_setter_configured';
@@ -184,12 +185,14 @@ export default function AiSetterSalesEngine() {
   const [integrationQuery, setIntegrationQuery] = useState('');
   const [workflowQuery, setWorkflowQuery] = useState('');
   const [toolQuery, setToolQuery] = useState('');
+  const knowledgeInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
     channels: [] as string[],
     integrations: [] as string[],
     identity: '',
     framework: '',
+    knowledge_files: [] as string[],
     workflows: [] as string[],
     tools: [] as string[],
   });
@@ -230,6 +233,19 @@ export default function AiSetterSalesEngine() {
   const toggleArr = (key: keyof typeof formData, val: string) => {
     const arr = formData[key] as string[];
     setFormData({ ...formData, [key]: arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val] });
+  };
+
+  const handleKnowledgeFilesUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+
+    const names = files.map(file => file.name);
+    setFormData(prev => ({
+      ...prev,
+      knowledge_files: Array.from(new Set([...(prev.knowledge_files || []), ...names])),
+    }));
+
+    if (knowledgeInputRef.current) knowledgeInputRef.current.value = '';
   };
 
   const nextStep = () => setCurrentStep(p => Math.min(p + 1, ONBOARDING_STEPS.length - 1));
@@ -290,7 +306,7 @@ export default function AiSetterSalesEngine() {
         <h2 className="text-lg font-bold text-gray-900 mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
-            { icon: BrainCircuit, label: 'Agent Customization', sub: 'Model, prompts, voice', color: 'bg-blue-50 text-blue-600', href: '/dashboard/builder' },
+            { icon: Cpu, label: 'Agent Customization', sub: 'Model, prompts, voice', color: 'bg-blue-50 text-blue-600', href: '/dashboard/builder' },
             { icon: Inbox, label: 'Live Inbox', sub: 'Monitor conversations', color: 'bg-green-50 text-green-600', href: '/dashboard/inbox' },
             { icon: Users, label: 'Leads CRM', sub: 'Manage prospect lists', color: 'bg-purple-50 text-purple-600', href: '/dashboard/leads' },
             { icon: BarChart2, label: 'Analytics', sub: 'Conversion & call data', color: 'bg-orange-50 text-orange-600', href: '/dashboard/analytics' },
@@ -534,8 +550,44 @@ export default function AiSetterSalesEngine() {
                       </div>
                       <h3 className="text-lg font-bold text-gray-900">Drop your documents here</h3>
                       <p className="text-sm text-gray-400 mt-2 max-w-sm mx-auto">PDF, TXT, DOCX, or Notion URLs. These are ingested as context for better performance.</p>
-                      <button className="mt-6 px-6 py-2.5 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-colors">Browse Files</button>
+                      <input
+                        ref={knowledgeInputRef}
+                        type="file"
+                        className="hidden"
+                        multiple
+                        accept=".pdf,.txt,.md,.doc,.docx,.csv,.json"
+                        onChange={handleKnowledgeFilesUpload}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => knowledgeInputRef.current?.click()}
+                        className="mt-6 px-6 py-2.5 bg-gray-900 text-white text-sm font-semibold rounded-xl hover:bg-gray-800 transition-colors"
+                      >
+                        Browse Files
+                      </button>
                     </div>
+                    {formData.knowledge_files.length > 0 && (
+                      <div className="mt-4 bg-white border border-gray-200 rounded-xl p-4">
+                        <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Selected Knowledge Files</p>
+                        <div className="space-y-1.5">
+                          {formData.knowledge_files.map(fileName => (
+                            <div key={fileName} className="flex items-center justify-between text-sm text-gray-700 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                              <span className="truncate">{fileName}</span>
+                              <button
+                                type="button"
+                                onClick={() => setFormData(prev => ({
+                                  ...prev,
+                                  knowledge_files: prev.knowledge_files.filter(f => f !== fileName),
+                                }))}
+                                className="text-gray-400 hover:text-red-500 transition-colors"
+                              >
+                                <X size={14} />
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -579,7 +631,7 @@ export default function AiSetterSalesEngine() {
                     {/* TOOLS */}
                     <div>
                       <h3 className="text-sm font-bold text-gray-900 uppercase tracking-widest mb-3 flex items-center gap-2">
-                        <BrainCircuit size={14} className="text-blue-500" /> Tools & Functions
+                        <Cpu size={14} className="text-blue-500" /> Tools & Functions
                       </h3>
                       <div className="relative mb-3">
                         <Search size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -623,8 +675,9 @@ export default function AiSetterSalesEngine() {
                             if (!res.ok) throw new Error(await res.text());
                             localStorage.setItem(SETUP_KEY, 'true');
                             setIsConfigured(true);
+                            toast.success('Sales Engine configured successfully');
                           } catch (err: any) {
-                            alert('Failed to configure Sales Engine: ' + err.message);
+                            toast.error(`Failed to configure Sales Engine: ${err.message}`);
                           }
                         }}
                         className="px-12 py-4 bg-gray-900 text-white font-bold rounded-xl hover:bg-black transition-colors shadow-lg active:scale-95 text-base"
