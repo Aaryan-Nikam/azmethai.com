@@ -1,0 +1,42 @@
+{
+  "name": "azmeth-extractor-worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "dev:invoice-worker": "tsx src/Extractor/worker/orchestrator.ts",
+    "dev:compliance-worker": "tsx src/Extractor/worker/compliance-queue.ts",
+    "dev:approvals-api": "tsx src/Extractor/worker/index.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
+    "@supabase/supabase-js": "^2.101.1",
+    "bullmq": "^5.70.1",
+    "chalk": "^5.6.2",
+    "cors": "^2.8.5",
+    "date-fns": "^4.1.0",
+    "dotenv": "^17.2.4",
+    "express": "^5.2.1",
+    "ioredis": "^5.10.0",
+    "langfuse": "^3.38.0",
+    "pdf-parse": "^1.1.1",
+    "resend": "^4.0.0",
+    "table": "^6.9.0",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.4",
+    "zod-to-json-schema": "^3.24.6"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.1",
+    "@types/node": "^22.13.10",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/uuid": "^10.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  }
+}

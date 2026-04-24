@@ -1,0 +1,48 @@
+services:
+  - type: web
+    name: azmeth-ai
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /api/outbound/campaigns/summary
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_APP_URL
+        value: https://azmeth-ai.onrender.com
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: AZURE_OPENAI_ENDPOINT
+        sync: false
+      - key: AZURE_OPENAI_API_KEY
+        sync: false
+      - key: AZURE_OPENAI_DEPLOYMENT
+        sync: false
+      - key: AZURE_KIMI_ENDPOINT
+        sync: false
+      - key: AZURE_KIMI_API_KEY
+        sync: false
+      - key: CRON_SECRET
+        generateValue: true
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false
+      - key: GMAIL_SENDER_NAME
+        value: Azmeth AI
+      - key: APIFY_API_KEY
+        sync: false
+      - key: BROWSERBASE_API_KEY
+        sync: false
+      - key: BROWSERBASE_PROJECT_ID
+        sync: false

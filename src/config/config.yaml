@@ -1,0 +1,60 @@
+# Mantis Configuration
+# Based on OpenClaw/Mantis Architecture
+
+version: "1.0"
+
+gateway:
+  port: 18789
+  host: "0.0.0.0"
+  publicUrl: "http://localhost:18789"
+
+security:
+  promptGuard:
+    enabled: true
+    sensitivity: "high" # low, medium, high
+  
+  rbac:
+    enabled: true
+    defaultRole: "employee" # admin, manager, employee, viewer
+  
+  audit:
+    enabled: true
+    retentionDays: 90
+
+auth:
+  jwt:
+    secret: "change-this-secret-in-production"
+    expiresIn: "24h"
+  apiKeys:
+    enabled: true
+
+database:
+  type: "postgres"
+  url: "postgresql://user:password@localhost:5432/mantis"
+
+redis:
+  url: "redis://localhost:6379"
+
+llm:
+  provider: "anthropic" # anthropic, openai, local
+  model: "claude-3-5-sonnet-20240620"
+  apiKey: "${ANTHROPIC_API_KEY}"
+
+sandbox:
+  enabled: true
+  provider: "docker"
+  image: "mantis-sandbox:latest"
+
+tools:
+  crm:
+    enabled: true
+    provider: "salesforce" # or hubspot
+  finance:
+    enabled: true
+    provider: "stripe" # or quickbooks
+  email:
+    enabled: true
+    provider: "gmail"
+  chat:
+    enabled: true
+    providers: ["slack", "whatsapp", "telegram"]
