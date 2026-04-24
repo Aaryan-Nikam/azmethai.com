@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabase";
 
 export const dynamic = 'force-dynamic';
 
-const DEPLOY_VERSION = "2026-04-24-v5";
+const DEPLOY_VERSION = "2026-04-25-v6";
 
 function normalizeSecret(value: string | undefined): string {
   if (!value) return "";
@@ -43,16 +43,12 @@ async function dbInsert(data: Record<string, unknown>): Promise<{ ok: boolean; e
 // ─────────────────────────────────────────────────────────────────────────────
 // HMAC signature verification (supports both sha256 + legacy sha1 headers)
 // ─────────────────────────────────────────────────────────────────────────────
-async function verifySignature(
-  rawBody: string,
+async function buildExpectedSignature(
+  rawBuffer: ArrayBuffer,
   secret: string,
-  header: string | null,
   algo: "SHA-256" | "SHA-1",
   prefix: "sha256=" | "sha1="
-): Promise<boolean> {
-  if (!header) return false;
-  const normalizedHeader = normalizeSignatureHeader(header);
-  if (!normalizedHeader) return false;
+): Promise<string> {
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(secret),
@@ -60,10 +56,26 @@ async function verifySignature(
     false,
     ["sign"]
   );
-  const digest = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
-  const expected = prefix + Array.from(new Uint8Array(digest))
+  const digest = await crypto.subtle.sign("HMAC", key, rawBuffer);
+  return prefix + Array.from(new Uint8Array(digest))
     .map(b => b.toString(16).padStart(2, "0")).join("");
-  return normalizedHeader === expected;
+}
+
+async function verifySignature(
+  rawBuffer: ArrayBuffer,
+  secret: string,
+  header: string | null,
+  algo: "SHA-256" | "SHA-1",
+  prefix: "sha256=" | "sha1="
+): Promise<{ valid: boolean; expectedPrefix: string | null; receivedPrefix: string | null }> {
+  const normalizedHeader = normalizeSignatureHeader(header);
+  if (!normalizedHeader) return { valid: false, expectedPrefix: null, receivedPrefix: null };
+  const expected = await buildExpectedSignature(rawBuffer, secret, algo, prefix);
+  return {
+    valid: normalizedHeader === expected,
+    expectedPrefix: expected.slice(0, 20),
+    receivedPrefix: normalizedHeader.slice(0, 20),
+  };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -91,7 +103,9 @@ export async function GET(request: NextRequest) {
 // POST — Receive Meta webhook events
 // ─────────────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
-  const rawBody = await request.text();
+  const rawBuffer = await request.arrayBuffer();
+  const rawBytes = new Uint8Array(rawBuffer);
+  const rawBody = new TextDecoder().decode(rawBuffer);
   const ts      = Date.now();
 
   // ── 1. Signature check ────────────────────────────────────────────────────
@@ -99,9 +113,11 @@ export async function POST(request: NextRequest) {
   if (appSecret) {
     const sig256 = request.headers.get("x-hub-signature-256");
     const sig1 = request.headers.get("x-hub-signature");
-    const valid256 = await verifySignature(rawBody, appSecret, sig256, "SHA-256", "sha256=");
-    const valid1 = valid256 ? false : await verifySignature(rawBody, appSecret, sig1, "SHA-1", "sha1=");
-    const valid = valid256 || valid1;
+    const check256 = await verifySignature(rawBuffer, appSecret, sig256, "SHA-256", "sha256=");
+    const check1 = check256.valid
+      ? { valid: false, expectedPrefix: null, receivedPrefix: null }
+      : await verifySignature(rawBuffer, appSecret, sig1, "SHA-1", "sha1=");
+    const valid = check256.valid || check1.valid;
 
     if (!valid) {
       // Log the failure so we can diagnose — but still return 200
@@ -111,12 +127,18 @@ export async function POST(request: NextRequest) {
         page_id:    "sig_failure",
         lead_id:    "sig_failure",
         status:     "failed",
-        error_log:  `Signature mismatch. sig256=${sig256 ? "present" : "missing"} sig1=${sig1 ? "present" : "missing"} secret_len=${appSecret.length} deploy=${DEPLOY_VERSION}`,
+        error_log:  `Signature mismatch. sig256=${sig256 ? "present" : "missing"} sig1=${sig1 ? "present" : "missing"} secret_len=${appSecret.length} bytes=${rawBytes.length} deploy=${DEPLOY_VERSION}`,
         raw_payload: {
           body_preview: rawBody.slice(0, 300),
           signature_headers: {
             "x-hub-signature-256": normalizeSignatureHeader(sig256),
             "x-hub-signature": normalizeSignatureHeader(sig1),
+          },
+          signature_debug: {
+            expected_256_prefix: check256.expectedPrefix,
+            received_256_prefix: check256.receivedPrefix,
+            expected_1_prefix: check1.expectedPrefix,
+            received_1_prefix: check1.receivedPrefix,
           },
         },
       });
