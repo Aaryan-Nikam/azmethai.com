@@ -4,7 +4,30 @@ import { createServerClient } from "@/lib/supabase";
 
 export const dynamic = 'force-dynamic';
 
-const DEPLOY_VERSION = "2026-04-24-v4";
+const DEPLOY_VERSION = "2026-04-24-v5";
+
+function normalizeSecret(value: string | undefined): string {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+function normalizeSignatureHeader(value: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  const unquoted =
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+      ? trimmed.slice(1, -1).trim()
+      : trimmed;
+  return unquoted.toLowerCase();
+}
 
 async function dbInsert(data: Record<string, unknown>): Promise<{ ok: boolean; error: string | null }> {
   try {
@@ -28,7 +51,8 @@ async function verifySignature(
   prefix: "sha256=" | "sha1="
 ): Promise<boolean> {
   if (!header) return false;
-  const normalizedHeader = header.trim().toLowerCase();
+  const normalizedHeader = normalizeSignatureHeader(header);
+  if (!normalizedHeader) return false;
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(secret),
@@ -71,7 +95,7 @@ export async function POST(request: NextRequest) {
   const ts      = Date.now();
 
   // ── 1. Signature check ────────────────────────────────────────────────────
-  const appSecret = process.env.META_APP_SECRET;
+  const appSecret = normalizeSecret(process.env.META_APP_SECRET);
   if (appSecret) {
     const sig256 = request.headers.get("x-hub-signature-256");
     const sig1 = request.headers.get("x-hub-signature");
@@ -87,12 +111,12 @@ export async function POST(request: NextRequest) {
         page_id:    "sig_failure",
         lead_id:    "sig_failure",
         status:     "failed",
-        error_log:  `Signature mismatch. sig256=${sig256 ? "present" : "missing"} sig1=${sig1 ? "present" : "missing"} deploy=${DEPLOY_VERSION}`,
+        error_log:  `Signature mismatch. sig256=${sig256 ? "present" : "missing"} sig1=${sig1 ? "present" : "missing"} secret_len=${appSecret.length} deploy=${DEPLOY_VERSION}`,
         raw_payload: {
           body_preview: rawBody.slice(0, 300),
           signature_headers: {
-            "x-hub-signature-256": sig256 || null,
-            "x-hub-signature": sig1 || null,
+            "x-hub-signature-256": normalizeSignatureHeader(sig256),
+            "x-hub-signature": normalizeSignatureHeader(sig1),
           },
         },
       });
