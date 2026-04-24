@@ -30,12 +30,17 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = createServerClient();
 
-
     // 1. Atomically claim pending webhook jobs
     const webhookRes = await supabase.rpc('claim_webhook_jobs', { batch_size: 5 });
-    
+    if (webhookRes.error) {
+      throw new Error(`claim_webhook_jobs failed: ${webhookRes.error.message}`);
+    }
+
     // 2. Atomically claim pending outbound AI jobs
     const outboundRes = await supabase.rpc('claim_outbound_jobs', { batch_size: 5 });
+    if (outboundRes.error) {
+      throw new Error(`claim_outbound_jobs failed: ${outboundRes.error.message}`);
+    }
 
     let webhookCount = 0;
     let outboundCount = 0;
@@ -80,4 +85,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
-

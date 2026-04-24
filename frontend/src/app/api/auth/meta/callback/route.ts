@@ -18,14 +18,24 @@ export async function GET(request: NextRequest) {
   }
 
   const [platform, userId, source = "config"] = state.split(":");
-  const redirectUri = process.env.NEXT_PUBLIC_META_REDIRECT_URI || "https://azmethai.com/api/auth/meta/callback";
+  const configuredRedirectUri = process.env.NEXT_PUBLIC_META_REDIRECT_URI;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "");
+  const redirectUri =
+    configuredRedirectUri ||
+    (appUrl ? `${appUrl}/api/auth/meta/callback` : `${request.nextUrl.origin}/api/auth/meta/callback`);
+  const appId = process.env.NEXT_PUBLIC_META_APP_ID;
+  const appSecret = process.env.META_APP_SECRET;
+
+  if (!appId || !appSecret) {
+    return NextResponse.redirect(new URL("/dashboard?error=meta_env_missing", request.url));
+  }
 
   // 1. Exchange code for short-lived token
   const tokenRes = await fetch(
     `https://graph.facebook.com/v21.0/oauth/access_token?` +
-      `client_id=${process.env.NEXT_PUBLIC_META_APP_ID}` +
+      `client_id=${appId}` +
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&client_secret=${process.env.META_APP_SECRET}` +
+      `&client_secret=${appSecret}` +
       `&code=${code}`
   );
   const tokenData = await tokenRes.json();
@@ -37,8 +47,8 @@ export async function GET(request: NextRequest) {
   const longTokenRes = await fetch(
     `https://graph.facebook.com/v21.0/oauth/access_token?` +
       `grant_type=fb_exchange_token` +
-      `&client_id=${process.env.NEXT_PUBLIC_META_APP_ID}` +
-      `&client_secret=${process.env.META_APP_SECRET}` +
+      `&client_id=${appId}` +
+      `&client_secret=${appSecret}` +
       `&fb_exchange_token=${tokenData.access_token}`
   );
   const longTokenData = await longTokenRes.json();

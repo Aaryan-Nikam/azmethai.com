@@ -25,7 +25,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Invalid platform. Use facebook or instagram." }, { status: 400 });
   }
 
-  const redirectUri = process.env.NEXT_PUBLIC_META_REDIRECT_URI || "https://azmethai.com/api/auth/meta/callback";
+  const configuredRedirectUri = process.env.NEXT_PUBLIC_META_REDIRECT_URI;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "");
+  const redirectUri =
+    configuredRedirectUri ||
+    (appUrl ? `${appUrl}/api/auth/meta/callback` : `${request.nextUrl.origin}/api/auth/meta/callback`);
   const source = request.nextUrl.searchParams.get("source") || "onboarding";
   const state = `${platform}:${userId}:${source}`;
   const scope = SCOPES[platform].join(",");

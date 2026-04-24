@@ -77,6 +77,9 @@ Where: **Render Dashboard → Service → Environment**
 - `OPENAI_API_KEY`
 - `CRON_SECRET` (any long random string)
 
+You can copy a ready template from:
+- `frontend/.env.production.example`
+
 ### 3.2 Inbound (Meta)
 - `NEXT_PUBLIC_META_APP_ID`
 - `META_APP_SECRET`
@@ -110,6 +113,9 @@ The platform uses queue tables and a cron endpoint to process jobs:
 - Inbound queue: `webhook_queue`
 - Outbound queue: `outbound_queue`
 
+Before enabling cron, ensure claim RPCs exist (run once in Supabase SQL Editor):
+- `docs/sql/queue-claim-functions.sql`
+
 Cron endpoint:
 - `GET APP_URL/api/cron/process-queue`
 - Header required:
@@ -119,6 +125,10 @@ Where to set it up:
 
 ### Option A (Recommended): Render Cron Job
 Where: **Render Dashboard → New → Cron Job**
+
+If you deploy via Blueprint, `render.yaml` now includes:
+- Web service `azmeth-frontend`
+- Cron service `azmeth-queue-worker` (every minute)
 
 Command example (runs every minute):
 ```bash

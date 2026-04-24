@@ -40,13 +40,24 @@ export async function GET() {
   let dbStatus = '⏳ untested';
   let dbError: string | null = null;
   let tableChecks: Record<string, string> = {};
+  let rpcChecks: Record<string, string> = {};
+  let rpcHealthy = false;
 
   if (serviceKey && serviceKey !== 'YOUR_SERVICE_ROLE_KEY_HERE') {
     try {
       const db = createClient(url, serviceKey, { auth: { persistSession: false } });
       
       // Check critical tables exist and are queryable
-      const tables = ['chat_leads', 'outbound_campaigns', 'outbound_leads', 'sales_agents', 'outbound_messages'];
+      const tables = [
+        'chat_leads',
+        'outbound_campaigns',
+        'outbound_leads',
+        'sales_agents',
+        'outbound_messages',
+        'platform_connections',
+        'webhook_queue',
+        'outbound_queue',
+      ];
       for (const table of tables) {
         try {
           const { error, count } = await db.from(table).select('*', { count: 'exact', head: true });
@@ -55,6 +66,28 @@ export async function GET() {
           tableChecks[table] = `❌ ${String(e)}`;
         }
       }
+
+      // Validate queue claim RPCs that the cron worker depends on.
+      // We pass batch_size=0 to verify function presence/permissions without claiming jobs.
+      try {
+        const claimWebhook = await db.rpc('claim_webhook_jobs', { batch_size: 0 });
+        rpcChecks.claim_webhook_jobs = claimWebhook.error
+          ? `❌ ${claimWebhook.error.message}`
+          : '✅ available';
+      } catch (e) {
+        rpcChecks.claim_webhook_jobs = `❌ ${String(e)}`;
+      }
+
+      try {
+        const claimOutbound = await db.rpc('claim_outbound_jobs', { batch_size: 0 });
+        rpcChecks.claim_outbound_jobs = claimOutbound.error
+          ? `❌ ${claimOutbound.error.message}`
+          : '✅ available';
+      } catch (e) {
+        rpcChecks.claim_outbound_jobs = `❌ ${String(e)}`;
+      }
+
+      rpcHealthy = Object.values(rpcChecks).every((value) => value.startsWith('✅'));
       dbStatus = '✅ connected';
     } catch (e: any) {
       dbStatus = '❌ failed';
@@ -65,7 +98,6 @@ export async function GET() {
   }
 
   const report = {
-    status: isServiceKeyCorrect && dbStatus.startsWith('✅') ? 'healthy' : 'degraded',
     timestamp: new Date().toISOString(),
     environment: process.env.NODE_ENV,
     supabase: {
@@ -79,6 +111,7 @@ export async function GET() {
       db_connection: dbStatus,
       db_error: dbError,
       tables: tableChecks,
+      queue_claim_rpcs: rpcChecks,
     },
     outbound_engine: {
       app_url: appUrl ? `✅ ${appUrl}` : '❌ MISSING — set NEXT_PUBLIC_APP_URL',
@@ -109,6 +142,12 @@ export async function GET() {
     },
   };
 
-  const httpStatus = report.status === 'healthy' ? 200 : 503;
-  return NextResponse.json(report, { status: httpStatus });
+  const isHealthy =
+    isServiceKeyCorrect &&
+    dbStatus.startsWith('✅') &&
+    Object.values(tableChecks).every((value) => value.startsWith('✅')) &&
+    rpcHealthy;
+  const status = isHealthy ? 'healthy' : 'degraded';
+  const httpStatus = isHealthy ? 200 : 503;
+  return NextResponse.json({ ...report, status }, { status: httpStatus });
 }
