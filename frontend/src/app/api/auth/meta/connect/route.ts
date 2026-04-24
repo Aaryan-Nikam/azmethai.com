@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
+import { META_REVIEW_PERMISSIONS } from "@/lib/meta-review";
 
 export const dynamic = 'force-dynamic';
 
 const SCOPES: Record<string, string[]> = {
+  meta: [...META_REVIEW_PERMISSIONS],
   facebook: [
     "pages_manage_metadata",
     "pages_read_engagement",
@@ -18,11 +20,11 @@ const SCOPES: Record<string, string[]> = {
 };
 
 export async function GET(request: NextRequest) {
-  const platform = request.nextUrl.searchParams.get("platform") as "facebook" | "instagram" | null;
+  const platform = request.nextUrl.searchParams.get("platform") as "meta" | "facebook" | "instagram" | null;
   const userId = request.nextUrl.searchParams.get("userId") || "anon";
 
   if (!platform || !SCOPES[platform]) {
-    return NextResponse.json({ error: "Invalid platform. Use facebook or instagram." }, { status: 400 });
+    return NextResponse.json({ error: "Invalid platform. Use meta, facebook or instagram." }, { status: 400 });
   }
 
   const configuredRedirectUri = process.env.NEXT_PUBLIC_META_REDIRECT_URI;

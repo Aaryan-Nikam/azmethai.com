@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@/lib/supabase";
+import { META_REVIEW_PERMISSIONS } from "@/lib/meta-review";
 
 export const dynamic = 'force-dynamic';
 
@@ -54,7 +55,44 @@ export async function GET(request: NextRequest) {
   const longTokenData = await longTokenRes.json();
   const longLivedToken = longTokenData.access_token || tokenData.access_token;
 
-  // 3. Fetch page/account info
+  const expires_at = longTokenData.expires_in
+    ? new Date(Date.now() + longTokenData.expires_in * 1000).toISOString()
+    : null;
+
+  const now = new Date().toISOString();
+
+  if (platform === "meta") {
+    const { error: dbError } = await supabase.from("platform_connections").upsert(
+      {
+        user_id: userId,
+        platform: "meta",
+        account_name: "Meta Business Login",
+        page_id: null,
+        access_token: longLivedToken,
+        is_active: true,
+        metadata: {
+          expires_at,
+          token_type: "meta",
+          requested_permissions: [...META_REVIEW_PERMISSIONS],
+          source,
+          review_mode_enabled: true,
+        },
+        updated_at: now,
+      },
+      { onConflict: "user_id,platform" }
+    );
+
+    if (dbError) {
+      console.error("DB upsert error:", dbError);
+      return NextResponse.redirect(new URL("/dashboard?error=db_save_failed", request.url));
+    }
+
+    return NextResponse.redirect(
+      new URL("/dashboard/integrations?review=1&connected=meta", request.url)
+    );
+  }
+
+  // 3. Fetch page/account info for the legacy flow
   const meRes = await fetch(
     `https://graph.facebook.com/v21.0/me/accounts?access_token=${longLivedToken}`
   );
@@ -62,10 +100,6 @@ export async function GET(request: NextRequest) {
   const page = meData.data?.[0];
 
   // 4. Upsert to Supabase
-  const expires_at = longTokenData.expires_in
-    ? new Date(Date.now() + longTokenData.expires_in * 1000).toISOString()
-    : null;
-
   const { error: dbError } = await supabase.from("platform_connections").upsert(
     {
       user_id: userId,
@@ -74,8 +108,8 @@ export async function GET(request: NextRequest) {
       page_id: page?.id || null,
       access_token: page?.access_token || longLivedToken,
       is_active: true,
-      metadata: { expires_at, token_type: platform },
-      updated_at: new Date().toISOString(),
+      metadata: { expires_at, token_type: platform, source },
+      updated_at: now,
     },
     { onConflict: "user_id,platform" }
   );

@@ -69,11 +69,12 @@ export async function processWebhookJob(
     const { user_id, access_token, page_id: senderAccountId } = connection;
 
     // 2. Agent Config Lookup (Context)
+    // Use maybeSingle() so missing rows return null instead of throwing PGRST116
     const { data: agentData } = await supabase
       .from("sales_agents")
-      .select("business_name, business_description, brand_voice, knowledge_base, provider_api_key, llm_billing_mode")
+      .select("business_name, business_description, brand_voice, knowledge_base, system_prompt, provider_api_key, llm_billing_mode")
       .eq("user_id", user_id)
-      .single();
+      .maybeSingle();
 
     const apiKey = agentData?.llm_billing_mode === 'custom' && agentData?.provider_api_key 
       ? agentData.provider_api_key 
@@ -84,7 +85,13 @@ export async function processWebhookJob(
     const openai = new OpenAI({ apiKey });
 
     // 3. Routing & Intent Classification
-    const userMessageContent = job.raw_payload.message?.text || "[Media/Attachment]";
+    // Instagram Graph API wraps text differently than Messenger (entry.messaging format)
+    // Support both: raw_payload.message.text (Messenger) and raw_payload.text (IG Graph API changes format)
+    const userMessageContent: string =
+      job.raw_payload?.message?.text ||
+      job.raw_payload?.text ||
+      job.raw_payload?.messages?.[0]?.text ||
+      "[Media/Attachment]";
     const history = await getMemoryWithinBudget(supabase, job.lead_id, 2000);
     const contextWindow = history.map(m => String(m.content)).slice(-3); // Get last 3 for classification
     
@@ -94,9 +101,12 @@ export async function processWebhookJob(
     let model = "gpt-4o-mini";
     let temperature = 0.3;
 
-    let systemPrompt = `You are a helpful AI assistant for ${agentData?.business_name || "a business"}.
-Brand Voice: ${agentData?.brand_voice || "friendly"}
-Business Context: ${agentData?.business_description || "Help users with their inquiries."}
+    // Use the custom system_prompt from the setup wizard if configured,
+    // otherwise fall back to a generated prompt from the individual config fields
+    let systemPrompt = agentData?.system_prompt ||
+      `You are a helpful AI assistant for ${agentData?.business_name || "a business"}.
+Brand Voice: ${agentData?.brand_voice || "consultative"}
+Business Context: ${agentData?.business_description || "Help users with their inquiries and qualify them as leads."}
 Knowledge Base: ${agentData?.knowledge_base || "N/A"}`;
 
     if (agent && agent.system_prompt) {

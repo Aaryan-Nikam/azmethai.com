@@ -203,7 +203,44 @@ export default function AiSetterSalesEngine() {
 
   // Hydrate configured state from localStorage after mount
   useEffect(() => {
-    setIsConfigured(localStorage.getItem(SETUP_KEY) === 'true');
+    const isSetup = localStorage.getItem(SETUP_KEY) === 'true';
+    setIsConfigured(isSetup);
+
+    // Fetch existing configuration from database
+    fetch('/api/agent')
+      .then(res => res.json())
+      .then(data => {
+        if (data.config) {
+          const cfg = data.config;
+          const prompt = cfg.system_prompt || '';
+          
+          // Parse the system_prompt string back into UI arrays
+          const extract = (prefix: string) => {
+            const match = prompt.match(new RegExp(`${prefix}:\\s*(.+)`));
+            if (!match || match[1] === 'none') return [];
+            return match[1].split(',').map((s: string) => s.trim()).filter(Boolean);
+          };
+
+          const frameworkMatch = prompt.match(/Framework:\s*(.+)/);
+
+          setFormData({
+            identity: cfg.brand_voice || '',
+            knowledge_files: cfg.knowledge_base ? cfg.knowledge_base.split(',').map((s: string) => s.trim()) : [],
+            framework: frameworkMatch ? frameworkMatch[1].trim() : '',
+            channels: extract('Channels'),
+            integrations: extract('Integrations'),
+            workflows: extract('Workflows'),
+            tools: extract('Tools'),
+          });
+          
+          // If we found config in DB but localStorage was empty, auto-fix it
+          if (!isSetup) {
+            localStorage.setItem(SETUP_KEY, 'true');
+            setIsConfigured(true);
+          }
+        }
+      })
+      .catch(err => console.error('Failed to hydrate agent config:', err));
   }, []);
 
   // Fetch stats when configured

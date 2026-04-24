@@ -1,140 +1,87 @@
 'use client';
 
 import React, { useState } from "react";
-import { toast } from 'sonner';
-import { useRouter } from "next/navigation";
-import { supabase } from "@/lib/supabase";
+import { MetaReviewWorkspace } from "@/components/integrations";
 
 export default function IntegrationsPage() {
-  const router = useRouter();
   const [waitlisted, setWaitlisted] = useState<{ linkedin: boolean; whatsapp: boolean }>({
     linkedin: false,
     whatsapp: false,
   });
 
-  const connectMeta = async (platform: "facebook" | "instagram") => {
-    try {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) throw error;
-
-      const userId = data.user?.id;
-      if (!userId) {
-        toast.error("Please sign in first");
-        router.push("/login");
-        return;
-      }
-
-      const url = `/api/auth/meta/connect?platform=${platform}&source=dashboard&userId=${encodeURIComponent(userId)}`;
-      window.location.assign(url);
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to start Meta connect");
-    }
-  };
-
-  const joinWaitlist = (product: 'linkedin' | 'whatsapp') => {
-    const email = window.prompt(`Enter your email to join the ${product === 'linkedin' ? 'LinkedIn' : 'WhatsApp Business'} beta waitlist`);
+  const joinWaitlist = (product: "linkedin" | "whatsapp") => {
+    const email = window.prompt(
+      `Enter your email to join the ${product === "linkedin" ? "LinkedIn" : "WhatsApp Business"} beta waitlist`,
+    );
     if (!email?.trim()) return;
-    setWaitlisted(prev => ({ ...prev, [product]: true }));
-    toast.success(`${product === 'linkedin' ? 'LinkedIn' : 'WhatsApp Business'} beta waitlist joined`);
+    setWaitlisted((previous) => ({ ...previous, [product]: true }));
   };
 
   return (
     <div className="min-h-screen bg-[#f7f8fa] text-[#111827]">
-      <main className="p-8 max-w-7xl mx-auto space-y-8">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+      <main className="mx-auto max-w-7xl space-y-8 p-8">
+        <MetaReviewWorkspace />
+
+        <section className="space-y-4">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight mb-2">Integrations</h1>
-            <p className="text-[#6b7280]">Connect external channels for the Azmeth Agent to manage.</p>
+            <h2 className="text-2xl font-bold tracking-tight">Other Integrations</h2>
+            <p className="text-sm text-[#6b7280]">Existing placeholders remain available outside the Meta review flow.</p>
           </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Meta Business Suite Card */}
-          <div className="bg-white rounded-2xl p-6 border border-[#e5e7eb] shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center font-bold text-lg">
-                  {/* Meta logo abstract */}
-                  M
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+            <div className="flex flex-col justify-between rounded-2xl border border-[#e5e7eb] bg-white p-6 opacity-70 shadow-sm">
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#f3f4f6] text-lg font-bold text-[#6b7280]">
+                    in
+                  </div>
+                  <span className="text-xs font-medium text-[#9ca3af]">Coming Soon</span>
                 </div>
-                <span className="px-2 py-1 bg-green-50 text-green-700 text-xs font-semibold rounded-full border border-green-200">
-                  Popular
-                </span>
+                <h3 className="mb-2 text-xl font-semibold">LinkedIn</h3>
+                <p className="mb-6 text-sm text-[#6b7280]">
+                  Automate outbound connection requests and inbox replies.
+                </p>
               </div>
-              <h3 className="text-xl font-semibold mb-2">Instagram & Meta</h3>
-              <p className="text-sm text-[#6b7280] mb-6">
-                Allow your AI to automatically read and respond to Instagram DMs and Facebook Messenger inquiries.
-              </p>
-            </div>
 
-            <div className="space-y-2">
               <button
-                onClick={() => connectMeta("instagram")}
-                className="w-full inline-flex justify-center items-center px-4 py-2 bg-[#111827] text-white rounded-lg font-medium hover:bg-[#374151] transition-colors"
+                onClick={() => joinWaitlist("linkedin")}
+                className={`w-full rounded-lg px-4 py-2 font-medium transition-colors ${
+                  waitlisted.linkedin
+                    ? "border border-green-200 bg-green-50 text-green-700"
+                    : "bg-[#f3f4f6] text-[#4b5563] hover:bg-[#e5e7eb]"
+                }`}
               >
-                Connect Instagram
-              </button>
-              <button
-                onClick={() => connectMeta("facebook")}
-                className="w-full inline-flex justify-center items-center px-4 py-2 bg-[#111827] text-white rounded-lg font-medium hover:bg-[#374151] transition-colors"
-              >
-                Connect Facebook Page
+                {waitlisted.linkedin ? "Joined Waitlist" : "Join Waitlist"}
               </button>
             </div>
-          </div>
 
-          {/* LinkedIn Placeholder */}
-          <div className="bg-white rounded-2xl p-6 border border-[#e5e7eb] shadow-sm flex flex-col justify-between opacity-60">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-[#f3f4f6] text-[#6b7280] rounded-xl flex items-center justify-center font-bold text-lg">
-                  in
+            <div className="flex flex-col justify-between rounded-2xl border border-[#e5e7eb] bg-white p-6 opacity-70 shadow-sm">
+              <div>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#f3f4f6] text-lg font-bold text-[#6b7280]">
+                    💬
+                  </div>
+                  <span className="text-xs font-medium text-[#9ca3af]">Coming Soon</span>
                 </div>
-                <span className="text-xs text-[#9ca3af] font-medium">Coming Soon</span>
+                <h3 className="mb-2 text-xl font-semibold">WhatsApp Business</h3>
+                <p className="mb-6 text-sm text-[#6b7280]">
+                  Deeper automation for templates, sessions, and business workflows is coming next.
+                </p>
               </div>
-              <h3 className="text-xl font-semibold mb-2">LinkedIn</h3>
-              <p className="text-sm text-[#6b7280] mb-6">
-                Automate outbound connection requests and inbox replies.
-              </p>
-            </div>
-            <button
-              onClick={() => joinWaitlist('linkedin')}
-              className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${
-                waitlisted.linkedin
-                  ? 'bg-green-50 text-green-700 border border-green-200'
-                  : 'bg-[#f3f4f6] text-[#4b5563] hover:bg-[#e5e7eb]'
-              }`}
-            >
-              {waitlisted.linkedin ? 'Joined Waitlist' : 'Join Waitlist'}
-            </button>
-          </div>
 
-          {/* WhatsApp Placeholder */}
-          <div className="bg-white rounded-2xl p-6 border border-[#e5e7eb] shadow-sm flex flex-col justify-between opacity-60">
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <div className="w-12 h-12 bg-[#f3f4f6] text-[#6b7280] rounded-xl flex items-center justify-center font-bold text-lg">
-                  💬
-                </div>
-                <span className="text-xs text-[#9ca3af] font-medium">Coming Soon</span>
-              </div>
-              <h3 className="text-xl font-semibold mb-2">WhatsApp Business</h3>
-              <p className="text-sm text-[#6b7280] mb-6">
-                Agentic responses to your WhatsApp Business number.
-              </p>
+              <button
+                onClick={() => joinWaitlist("whatsapp")}
+                className={`w-full rounded-lg px-4 py-2 font-medium transition-colors ${
+                  waitlisted.whatsapp
+                    ? "border border-green-200 bg-green-50 text-green-700"
+                    : "bg-[#f3f4f6] text-[#4b5563] hover:bg-[#e5e7eb]"
+                }`}
+              >
+                {waitlisted.whatsapp ? "Joined Waitlist" : "Join Waitlist"}
+              </button>
             </div>
-            <button
-              onClick={() => joinWaitlist('whatsapp')}
-              className={`w-full px-4 py-2 rounded-lg font-medium transition-colors ${
-                waitlisted.whatsapp
-                  ? 'bg-green-50 text-green-700 border border-green-200'
-                  : 'bg-[#f3f4f6] text-[#4b5563] hover:bg-[#e5e7eb]'
-              }`}
-            >
-              {waitlisted.whatsapp ? 'Joined Waitlist' : 'Join Waitlist'}
-            </button>
           </div>
-        </div>
+        </section>
       </main>
     </div>
   );
