@@ -178,7 +178,12 @@ export async function POST(request: NextRequest) {
   // asynchronously right after receiving the webhook. Next.js Node server will execute this.
   setTimeout(async () => {
     try {
-      const supabase = createServerClient();
+      const { createClient } = await import('@supabase/supabase-js');
+      const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      );
+      
       const { data } = await supabase.rpc('claim_webhook_jobs', { batch_size: 5 });
       if (data && data.length > 0) {
         const { processWebhookJob } = await import('@/core/agent/engine');
