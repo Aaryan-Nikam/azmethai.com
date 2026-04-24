@@ -4,7 +4,7 @@ import { createServerClient } from "@/lib/supabase";
 
 export const dynamic = 'force-dynamic';
 
-const DEPLOY_VERSION = "2026-04-16-v3";
+const DEPLOY_VERSION = "2026-04-24-v4";
 
 async function dbInsert(data: Record<string, unknown>): Promise<{ ok: boolean; error: string | null }> {
   try {
@@ -18,21 +18,28 @@ async function dbInsert(data: Record<string, unknown>): Promise<{ ok: boolean; e
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HMAC-SHA256 Signature Verification (Web Crypto — Edge compatible)
+// HMAC signature verification (supports both sha256 + legacy sha1 headers)
 // ─────────────────────────────────────────────────────────────────────────────
-async function verifySignature(rawBody: string, secret: string, header: string | null): Promise<boolean> {
+async function verifySignature(
+  rawBody: string,
+  secret: string,
+  header: string | null,
+  algo: "SHA-256" | "SHA-1",
+  prefix: "sha256=" | "sha1="
+): Promise<boolean> {
   if (!header) return false;
+  const normalizedHeader = header.trim().toLowerCase();
   const key = await crypto.subtle.importKey(
     "raw",
     new TextEncoder().encode(secret),
-    { name: "HMAC", hash: "SHA-256" },
+    { name: "HMAC", hash: algo },
     false,
     ["sign"]
   );
   const digest = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
-  const expected = "sha256=" + Array.from(new Uint8Array(digest))
+  const expected = prefix + Array.from(new Uint8Array(digest))
     .map(b => b.toString(16).padStart(2, "0")).join("");
-  return header === expected;
+  return normalizedHeader === expected;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -66,8 +73,12 @@ export async function POST(request: NextRequest) {
   // ── 1. Signature check ────────────────────────────────────────────────────
   const appSecret = process.env.META_APP_SECRET;
   if (appSecret) {
-    const sigHeader = request.headers.get("x-hub-signature-256");
-    const valid = await verifySignature(rawBody, appSecret, sigHeader);
+    const sig256 = request.headers.get("x-hub-signature-256");
+    const sig1 = request.headers.get("x-hub-signature");
+    const valid256 = await verifySignature(rawBody, appSecret, sig256, "SHA-256", "sha256=");
+    const valid1 = valid256 ? false : await verifySignature(rawBody, appSecret, sig1, "SHA-1", "sha1=");
+    const valid = valid256 || valid1;
+
     if (!valid) {
       // Log the failure so we can diagnose — but still return 200
       await dbInsert({
@@ -76,8 +87,14 @@ export async function POST(request: NextRequest) {
         page_id:    "sig_failure",
         lead_id:    "sig_failure",
         status:     "failed",
-        error_log:  `Signature mismatch. Received header: ${sigHeader ?? "MISSING"}. Deploy: ${DEPLOY_VERSION}`,
-        raw_payload: { body_preview: rawBody.slice(0, 300) },
+        error_log:  `Signature mismatch. sig256=${sig256 ? "present" : "missing"} sig1=${sig1 ? "present" : "missing"} deploy=${DEPLOY_VERSION}`,
+        raw_payload: {
+          body_preview: rawBody.slice(0, 300),
+          signature_headers: {
+            "x-hub-signature-256": sig256 || null,
+            "x-hub-signature": sig1 || null,
+          },
+        },
       });
       // Return 200 so Meta doesn't stop sending
       return NextResponse.json({ received: true, deploy: DEPLOY_VERSION }, { status: 200 });
