@@ -1,0 +1,36 @@
+{
+  "name": "@azmeth/bluebubbles",
+  "version": "2026.2.12",
+  "description": "Azmeth BlueBubbles channel plugin",
+  "type": "module",
+  "devDependencies": {
+    "azmeth": "workspace:*"
+  },
+  "azmeth": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "channel": {
+      "id": "bluebubbles",
+      "label": "BlueBubbles",
+      "selectionLabel": "BlueBubbles (macOS app)",
+      "detailLabel": "BlueBubbles",
+      "docsPath": "/channels/bluebubbles",
+      "docsLabel": "bluebubbles",
+      "blurb": "iMessage via the BlueBubbles mac app + REST API.",
+      "aliases": [
+        "bb"
+      ],
+      "preferOver": [
+        "imessage"
+      ],
+      "systemImage": "bubble.left.and.text.bubble.right",
+      "order": 75
+    },
+    "install": {
+      "npmSpec": "@azmeth/bluebubbles",
+      "localPath": "extensions/bluebubbles",
+      "defaultChoice": "npm"
+    }
+  }
+}

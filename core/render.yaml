@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: azmeth
+    runtime: docker
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: "8080"
+      - key: SETUP_PASSWORD
+        sync: false
+      - key: AZMETH_STATE_DIR
+        value: /data/.azmeth
+      - key: AZMETH_WORKSPACE_DIR
+        value: /data/workspace
+      - key: AZMETH_GATEWAY_TOKEN
+        generateValue: true
+    disk:
+      name: azmeth-data
+      mountPath: /data
+      sizeGB: 1

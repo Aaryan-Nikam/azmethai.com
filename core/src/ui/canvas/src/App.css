@@ -1,0 +1,48 @@
+html,
+body,
+#root {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100vh;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.canvas-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: 100%;
+}
+
+.canvas-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 2rem;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #e9ecef;
+    height: 60px;
+    box-sizing: border-box;
+}
+
+.canvas-header h1 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: #343a40;
+}
+
+.status {
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    background-color: #d4edda;
+    color: #155724;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.reactflow-wrapper {
+    flex-grow: 1;
+    width: 100%;
+    position: relative;
+}

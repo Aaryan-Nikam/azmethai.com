@@ -1,0 +1,15 @@
+{
+  "name": "@azmeth/google-antigravity-auth",
+  "version": "2026.2.12",
+  "private": true,
+  "description": "Azmeth Google Antigravity OAuth provider plugin",
+  "type": "module",
+  "devDependencies": {
+    "azmeth": "workspace:*"
+  },
+  "azmeth": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

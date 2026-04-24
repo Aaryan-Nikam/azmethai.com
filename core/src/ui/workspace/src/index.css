@@ -1,0 +1,349 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+:root {
+  --bg-deep: #111113;
+  --bg-canvas: #18181b;
+  --bg-card: #2a2a2e;
+  --bg-elevated: #1e1e22;
+  --border: #333338;
+  --border-hover: #505058;
+  --text-primary: #e4e4e8;
+  --text-secondary: #8b8b96;
+  --text-subtle: #5a5a66;
+  --accent-purple: #a78bfa;
+  --accent-blue: #38bdf8;
+  --accent-green: #4ade80;
+  --accent-red: #f87171;
+  --accent-indigo: #818cf8;
+  --accent-gold: #fbbf24;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--bg-deep);
+  color: var(--text-primary);
+  height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  height: 100vh;
+}
+
+/* ═══════════════════════════════════
+   LAYOUT: Sidebar + Canvas
+   ═══════════════════════════════════ */
+.workspace-root {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ═══════════════════════════════════
+   SIDEBAR (Weavy-style thin icon rail)
+   ═══════════════════════════════════ */
+.sidebar {
+  width: 48px;
+  background: var(--bg-deep);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  flex-shrink: 0;
+  z-index: 10;
+}
+
+.sidebar-logo {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 20px;
+  font-size: 18px;
+}
+
+.sidebar-icons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.sidebar-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sidebar-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-subtle);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sidebar-btn:hover {
+  background: var(--bg-card);
+  color: var(--text-primary);
+}
+
+.sidebar-btn.active {
+  background: var(--bg-card);
+  color: var(--accent-gold);
+}
+
+/* ═══════════════════════════════════
+   CANVAS AREA
+   ═══════════════════════════════════ */
+.canvas-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Top header bar */
+.canvas-header {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-deep);
+  flex-shrink: 0;
+  z-index: 5;
+}
+
+.canvas-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: 0.3px;
+}
+
+.canvas-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.canvas-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+
+.canvas-status-text {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Canvas container */
+.canvas-container {
+  flex: 1;
+  background: var(--bg-canvas);
+  position: relative;
+}
+
+/* ═══════════════════════════════════
+   COMMAND BAR (floating at bottom)
+   ═══════════════════════════════════ */
+.command-bar {
+  position: absolute;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  width: min(600px, 70%);
+}
+
+.command-bar-inner {
+  background: rgba(30, 30, 34, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+}
+
+.command-bar-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--accent-purple);
+}
+
+.command-bar-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.command-input {
+  flex: 1;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  color: var(--text-primary);
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.command-input:focus {
+  border-color: var(--accent-purple);
+}
+
+.command-input::placeholder {
+  color: var(--text-subtle);
+}
+
+.command-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.command-send {
+  width: 38px;
+  height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent-gold);
+  color: #111;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.command-send:hover:not(:disabled) {
+  background: #f59e0b;
+  transform: scale(1.05);
+}
+
+.command-send:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.command-bar-footer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 10px;
+  color: var(--text-subtle);
+}
+
+.command-bar-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+/* ═══════════════════════════════════
+   ANIMATIONS
+   ═══════════════════════════════════ */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 1.5s linear infinite;
+}
+
+/* ═══════════════════════════════════
+   REACT FLOW OVERRIDES
+   ═══════════════════════════════════ */
+.react-flow__controls {
+  bottom: 80px !important;
+  left: 16px !important;
+}
+
+.react-flow__controls button {
+  background: var(--bg-card) !important;
+  border-color: var(--border) !important;
+  color: var(--text-secondary) !important;
+  fill: var(--text-secondary) !important;
+  width: 28px !important;
+  height: 28px !important;
+}
+
+.react-flow__controls button:hover {
+  background: var(--bg-elevated) !important;
+  color: var(--text-primary) !important;
+  fill: var(--text-primary) !important;
+}
+
+.react-flow__edge-path {
+  stroke: #404048 !important;
+}
+
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 5;
+  animation: dashdraw 0.5s linear infinite;
+}
+
+@keyframes dashdraw {
+  from {
+    stroke-dashoffset: 10;
+  }
+}
+
+/* Minimap override */
+.react-flow__minimap {
+  background: var(--bg-deep) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+}
+
+/* ═══════════════════════════════════
+   SCROLLBAR
+   ═══════════════════════════════════ */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
+}

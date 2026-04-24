@@ -1,0 +1,14 @@
+{
+  "name": "@azmeth/irc",
+  "version": "2026.2.12",
+  "description": "Azmeth IRC channel plugin",
+  "type": "module",
+  "devDependencies": {
+    "azmeth": "workspace:*"
+  },
+  "azmeth": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

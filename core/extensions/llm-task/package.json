@@ -1,0 +1,15 @@
+{
+  "name": "@azmeth/llm-task",
+  "version": "2026.2.12",
+  "private": true,
+  "description": "Azmeth JSON-only LLM task plugin",
+  "type": "module",
+  "devDependencies": {
+    "azmeth": "workspace:*"
+  },
+  "azmeth": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

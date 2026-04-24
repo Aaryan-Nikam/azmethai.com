@@ -1,0 +1,20 @@
+{
+  "name": "@azmeth/memory-lancedb",
+  "version": "2026.2.12",
+  "private": true,
+  "description": "Azmeth LanceDB-backed long-term memory plugin with auto-recall/capture",
+  "type": "module",
+  "dependencies": {
+    "@lancedb/lancedb": "^0.26.2",
+    "@sinclair/typebox": "0.34.48",
+    "openai": "^6.21.0"
+  },
+  "devDependencies": {
+    "azmeth": "workspace:*"
+  },
+  "azmeth": {
+    "extensions": [
+      "./index.ts"
+    ]
+  }
+}

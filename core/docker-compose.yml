@@ -1,0 +1,46 @@
+services:
+  azmeth-gateway:
+    image: ${AZMETH_IMAGE:-azmeth:local}
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      AZMETH_GATEWAY_TOKEN: ${AZMETH_GATEWAY_TOKEN}
+      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
+      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
+      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
+    volumes:
+      - ${AZMETH_CONFIG_DIR}:/home/node/.azmeth
+      - ${AZMETH_WORKSPACE_DIR}:/home/node/.azmeth/workspace
+    ports:
+      - "${AZMETH_GATEWAY_PORT:-18789}:18789"
+      - "${AZMETH_BRIDGE_PORT:-18790}:18790"
+    init: true
+    restart: unless-stopped
+    command:
+      [
+        "node",
+        "dist/index.js",
+        "gateway",
+        "--bind",
+        "${AZMETH_GATEWAY_BIND:-lan}",
+        "--port",
+        "18789",
+      ]
+
+  azmeth-cli:
+    image: ${AZMETH_IMAGE:-azmeth:local}
+    environment:
+      HOME: /home/node
+      TERM: xterm-256color
+      AZMETH_GATEWAY_TOKEN: ${AZMETH_GATEWAY_TOKEN}
+      BROWSER: echo
+      CLAUDE_AI_SESSION_KEY: ${CLAUDE_AI_SESSION_KEY}
+      CLAUDE_WEB_SESSION_KEY: ${CLAUDE_WEB_SESSION_KEY}
+      CLAUDE_WEB_COOKIE: ${CLAUDE_WEB_COOKIE}
+    volumes:
+      - ${AZMETH_CONFIG_DIR}:/home/node/.azmeth
+      - ${AZMETH_WORKSPACE_DIR}:/home/node/.azmeth/workspace
+    stdin_open: true
+    tty: true
+    init: true
+    entrypoint: ["node", "dist/index.js"]

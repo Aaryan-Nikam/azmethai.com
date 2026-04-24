@@ -1,0 +1,32 @@
+{
+  "manifest_version": 3,
+  "name": "Claude Workspace",
+  "version": "1.0.0",
+  "description": "Agentic workspace acting directly in the browser via side panel and content scripts.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage",
+    "tabs",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "action": {
+    "default_title": "Open Workspace"
+  },
+  "background": {
+    "service_worker": "src/background/background.ts",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/content/content.ts"]
+    }
+  ],
+  "side_panel": {
+    "default_path": "src/sidepanel/index.html"
+  }
+}

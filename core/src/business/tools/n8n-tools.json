@@ -1,0 +1,84 @@
+[
+  {
+    "name": "gmail_send_email",
+    "description": "Send an email via Gmail integration",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "to": { "type": "string", "description": "Recipient email address" },
+        "subject": { "type": "string", "description": "Email subject" },
+        "body": { "type": "string", "description": "Email body (HTML or plain text)" }
+      },
+      "required": ["to", "subject", "body"]
+    }
+  },
+  {
+    "name": "hubspot_create_contact",
+    "description": "Create a new contact in Hubspot CRM",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "email": { "type": "string", "description": "Contact email address" },
+        "firstname": { "type": "string", "description": "First name of the contact" },
+        "lastname": { "type": "string", "description": "Last name of the contact" },
+        "pipeline": { "type": "string", "description": "Sales pipeline to add them to" }
+      },
+      "required": ["email"]
+    }
+  },
+  {
+    "name": "slack_send_message",
+    "description": "Send a message to a specific Slack channel",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "channel": { "type": "string", "description": "Slack channel name (e.g. #general)" },
+        "text": { "type": "string", "description": "Message to send" }
+      },
+      "required": ["channel", "text"]
+    }
+  },
+  {
+    "name": "notion_create_page",
+    "description": "Create a new page in a Notion workspace",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "database_id": { "type": "string", "description": "Notion database ID to create page in" },
+        "title": { "type": "string", "description": "Page title" },
+        "content": { "type": "string", "description": "Page content in Markdown" }
+      },
+      "required": ["database_id", "title"]
+    }
+  },
+  {
+    "name": "calendar_create_event",
+    "description": "Create a calendar event in Google Calendar or Outlook",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Event title" },
+        "start_time": { "type": "string", "description": "ISO8601 start datetime" },
+        "end_time": { "type": "string", "description": "ISO8601 end datetime" },
+        "attendees": { "type": "array", "items": { "type": "string" }, "description": "List of attendee emails" },
+        "description": { "type": "string", "description": "Event description or agenda" }
+      },
+      "required": ["title", "start_time", "end_time"]
+    }
+  },
+  {
+    "name": "jira_create_ticket",
+    "description": "Create a Jira issue or ticket",
+    "input_schema": {
+      "type": "object",
+      "properties": {
+        "project_key": { "type": "string", "description": "Jira project key (e.g. ENG)" },
+        "summary": { "type": "string", "description": "Issue title/summary" },
+        "description": { "type": "string", "description": "Detailed description" },
+        "issue_type": { "type": "string", "description": "Issue type: Bug, Task, Story, Epic" },
+        "priority": { "type": "string", "description": "Priority: Highest, High, Medium, Low" }
+      },
+      "required": ["project_key", "summary", "issue_type"]
+    }
+  }
+]
