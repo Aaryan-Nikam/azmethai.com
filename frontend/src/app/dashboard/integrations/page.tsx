@@ -1,14 +1,35 @@
 'use client';
 
 import React, { useState } from "react";
-import Link from "next/link";
 import { toast } from 'sonner';
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 export default function IntegrationsPage() {
+  const router = useRouter();
   const [waitlisted, setWaitlisted] = useState<{ linkedin: boolean; whatsapp: boolean }>({
     linkedin: false,
     whatsapp: false,
   });
+
+  const connectMeta = async (platform: "facebook" | "instagram") => {
+    try {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) throw error;
+
+      const userId = data.user?.id;
+      if (!userId) {
+        toast.error("Please sign in first");
+        router.push("/login");
+        return;
+      }
+
+      const url = `/api/auth/meta/connect?platform=${platform}&source=dashboard&userId=${encodeURIComponent(userId)}`;
+      window.location.assign(url);
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to start Meta connect");
+    }
+  };
 
   const joinWaitlist = (product: 'linkedin' | 'whatsapp') => {
     const email = window.prompt(`Enter your email to join the ${product === 'linkedin' ? 'LinkedIn' : 'WhatsApp Business'} beta waitlist`);
@@ -46,15 +67,20 @@ export default function IntegrationsPage() {
               </p>
             </div>
 
-            {/* The userId parameter should ideally be fetched from auth context.
-                Currently hardcoding 'user_tenant_1' or relying on the backend route to handle it. */}
-            <Link
-              href="/api/auth/meta/connect?platform=instagram&source=dashboard"
-              className="w-full inline-flex justify-center items-center px-4 py-2 bg-[#111827] text-white rounded-lg font-medium hover:bg-[#374151] transition-colors"
-              prefetch={false}
-            >
-              Connect Instagram
-            </Link>
+            <div className="space-y-2">
+              <button
+                onClick={() => connectMeta("instagram")}
+                className="w-full inline-flex justify-center items-center px-4 py-2 bg-[#111827] text-white rounded-lg font-medium hover:bg-[#374151] transition-colors"
+              >
+                Connect Instagram
+              </button>
+              <button
+                onClick={() => connectMeta("facebook")}
+                className="w-full inline-flex justify-center items-center px-4 py-2 bg-[#111827] text-white rounded-lg font-medium hover:bg-[#374151] transition-colors"
+              >
+                Connect Facebook Page
+              </button>
+            </div>
           </div>
 
           {/* LinkedIn Placeholder */}
