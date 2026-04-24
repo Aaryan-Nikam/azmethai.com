@@ -9,27 +9,15 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  ExternalLink,
   Paperclip,
   Send,
   Sparkles,
   Terminal,
   User,
-  Zap,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AzmethLogo } from '@/components/ui/AzmethLogo';
-import { NAV_GROUPS, Sidebar } from '@/components/layout/Sidebar';
-import CommandCenterPage from '../command-center/page';
-import OutboundEnginePage from '../outbound/page';
-import LiveInboxPage from '../inbox/page';
-import SystemsHubPage from '../systems/page';
-import BuilderPage from '../builder/page';
-import AIEmployeesPage from '../employees/page';
-import LeadsCRMPage from '../leads/page';
-import MonitoringPage from '../monitoring/page';
-import LibraryPage from '../library/page';
-import AnalyticsPage from '../analytics/page';
+import { NAV_GROUPS } from '@/components/layout/Sidebar';
 
 interface Message {
   id: string;
@@ -179,6 +167,21 @@ const APP_SIDEBAR_ITEMS = NAV_GROUPS.flatMap((group) =>
   group.items.filter((item) => item.href !== '/dashboard/agent'),
 );
 
+function withShellMode(href: string, shell: 'workspace' | 'surface'): string {
+  // `href` is a path like `/dashboard/inbox` (possibly with query).
+  // We return a same-origin relative URL that includes `shell=<mode>`.
+  try {
+    const base = typeof window !== 'undefined' ? window.location.origin : 'http://localhost';
+    const url = new URL(href, base);
+    url.searchParams.set('shell', shell);
+    const search = url.searchParams.toString();
+    return `${url.pathname}${search ? `?${search}` : ''}${url.hash || ''}`;
+  } catch {
+    const joiner = href.includes('?') ? '&' : '?';
+    return `${href}${joiner}shell=${shell}`;
+  }
+}
+
 function parseMessage(text: string): ParsedBlock[] {
   const blocks: ParsedBlock[] = [];
   const regex = /\[NAV:(.*?)\|(.*?)\]/g;
@@ -259,6 +262,9 @@ export default function AzmethAgentDashboard() {
   const [workspaceHref, setWorkspaceHref] = useState(WORKSPACE_SURFACES[0].href);
   const [focusMode, setFocusMode] = useState<FocusMode>('combined');
   const [expandedExecutionId, setExpandedExecutionId] = useState<string | null>(null);
+  const [workspaceFrameSrc, setWorkspaceFrameSrc] = useState(() =>
+    withShellMode(WORKSPACE_SURFACES[0].href, 'workspace'),
+  );
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -302,6 +308,10 @@ export default function AzmethAgentDashboard() {
   const activeSurface =
     WORKSPACE_SURFACES.find((surface) => surface.id === activeSurfaceId) ?? WORKSPACE_SURFACES[0];
 
+  useEffect(() => {
+    setWorkspaceFrameSrc(withShellMode(workspaceHref, 'workspace'));
+  }, [workspaceHref]);
+
   const setWorkspaceRoute = (href: string) => {
     setWorkspaceHref(href);
     const matchedSurface = WORKSPACE_SURFACES.find((surface) => surface.href === href);
@@ -312,6 +322,14 @@ export default function AzmethAgentDashboard() {
 
   const openSurfaceWindow = () => {
     window.open(workspaceHref, '_blank', 'noopener,noreferrer');
+  };
+
+  const togglePanes = () => {
+    setFocusMode((prev) => {
+      if (prev === 'workspace') return 'combined';
+      if (prev === 'assistant') return 'combined';
+      return 'workspace';
+    });
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -567,86 +585,6 @@ export default function AzmethAgentDashboard() {
   const liveSurfaceHref = workspaceHref;
   const chatPaneWidth = 360;
 
-  const [liveSurfacePath, liveSurfaceQuery] = liveSurfaceHref.split('?');
-  const liveSurfaceParams = new URLSearchParams(liveSurfaceQuery || '');
-  const leadSourceParam = liveSurfaceParams.get('source');
-  const leadSource =
-    leadSourceParam === 'inbound' || leadSourceParam === 'outbound' ? leadSourceParam : undefined;
-
-  const handleWorkspaceClickCapture = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (event.defaultPrevented) return;
-    if (event.button !== 0) return;
-    if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-
-    const target = event.target as HTMLElement | null;
-    if (!target) return;
-    const anchor = target.closest('a') as HTMLAnchorElement | null;
-    if (!anchor) return;
-
-    const hrefAttr = anchor.getAttribute('href');
-    if (!hrefAttr) return;
-    if (anchor.getAttribute('target') === '_blank') return;
-    if (hrefAttr.startsWith('#') || hrefAttr.startsWith('mailto:') || hrefAttr.startsWith('tel:')) return;
-    if (!hrefAttr.startsWith('/dashboard')) return;
-
-    event.preventDefault();
-    setWorkspaceRoute(hrefAttr);
-  };
-
-  const renderWorkspaceSurface = () => {
-    switch (liveSurfacePath) {
-      case '/dashboard/command-center':
-        return <CommandCenterPage />;
-      case '/dashboard/outbound':
-        return <OutboundEnginePage />;
-      case '/dashboard/inbox':
-        return <LiveInboxPage />;
-      case '/dashboard/systems':
-        return <SystemsHubPage />;
-      case '/dashboard/builder':
-        return <BuilderPage />;
-      case '/dashboard/employees':
-        return <AIEmployeesPage />;
-      case '/dashboard/leads':
-        return <LeadsCRMPage initialSource={leadSource} />;
-      case '/dashboard/monitoring':
-        return <MonitoringPage />;
-      case '/dashboard/library':
-        return <LibraryPage />;
-      case '/dashboard/analytics':
-        return <AnalyticsPage />;
-      case '/dashboard/sandbox':
-        return (
-          <div className="p-8">
-            <h1 className="text-2xl font-semibold text-gray-900">App Window</h1>
-            <p className="mt-2 max-w-xl text-sm text-gray-600">
-              This right-side window is the live app surface. Use the toggle next to Builder to collapse the agent chat
-              and give the app full focus.
-            </p>
-          </div>
-        );
-      default:
-        return (
-          <div className="p-8">
-            <h1 className="text-2xl font-semibold text-gray-900">Surface Not Available</h1>
-            <p className="mt-2 max-w-xl text-sm text-gray-600">
-              This surface is not wired into the workspace view yet.
-            </p>
-            <div className="mt-5">
-              <button
-                type="button"
-                onClick={() => window.open(liveSurfaceHref, '_blank', 'noopener,noreferrer')}
-                className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-800 shadow-sm hover:bg-gray-50"
-              >
-                <ExternalLink size={14} />
-                Open In New Tab
-              </button>
-            </div>
-          </div>
-        );
-    }
-  };
-
   const latestExecutionTrace =
     [...messages]
       .reverse()
@@ -686,10 +624,10 @@ export default function AzmethAgentDashboard() {
         : [];
 
   return (
-    <div className="h-full overflow-hidden bg-[#0b0b0b] p-2 sm:p-3">
-      <div className="h-full rounded-[36px] bg-[#0b0b0b] p-[1px] shadow-[0_18px_60px_rgba(0,0,0,0.55)]">
+    <div className="h-full overflow-hidden bg-[#0b0b0b] p-1.5 sm:p-2">
+      <div className="h-full rounded-[30px] bg-[#0b0b0b] p-[1px] shadow-[0_18px_54px_rgba(0,0,0,0.52)]">
         <div
-          className="flex h-full overflow-hidden rounded-[35px] border border-[#1f1f1f] bg-[#141414] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
+          className="flex h-full overflow-hidden rounded-[29px] border border-[#1f1f1f] bg-[#141414] p-2 shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]"
         >
         {agentVisible && (
           <aside
@@ -714,7 +652,7 @@ export default function AzmethAgentDashboard() {
                 <div className="flex items-center gap-2">
                   {workspaceVisible && (
                     <button
-                      onClick={() => setFocusMode('workspace')}
+                      onClick={togglePanes}
                       className={`inline-flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
                         'border-white/10 bg-white/[0.05] text-white/72 hover:bg-white/[0.08]'
                       }`}
@@ -923,19 +861,13 @@ export default function AzmethAgentDashboard() {
             )}
             <div className="min-h-0 flex-1 p-3.5">
               <div className="flex h-full min-h-[420px] overflow-hidden rounded-[24px] border border-[#dfdacf] bg-white shadow-[0_18px_40px_rgba(0,0,0,0.08)]">
-                <Sidebar
-                  hideWorkspaceEntry
-                  hideBrand
-                  hideFooter
-                  activeHref={liveSurfaceHref}
-                  onNavigate={setWorkspaceRoute}
+                <iframe
+                  key={workspaceFrameSrc}
+                  title="Workspace app surface"
+                  src={workspaceFrameSrc}
+                  className="h-full w-full min-w-0 flex-1 bg-white"
+                  sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-top-navigation-by-user-activation"
                 />
-                <div
-                  className="az-compact-ui min-w-0 flex-1 overflow-hidden bg-[#f7f8fa]"
-                  onClickCapture={handleWorkspaceClickCapture}
-                >
-                  {renderWorkspaceSurface()}
-                </div>
               </div>
             </div>
           </section>

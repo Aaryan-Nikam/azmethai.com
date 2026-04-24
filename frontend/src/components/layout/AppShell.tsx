@@ -10,23 +10,45 @@ interface AppShellProps {
 
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   const pathname = usePathname() || '';
-  const [isEmbedded, setIsEmbedded] = useState(false);
+  const [shellMode, setShellMode] = useState<'app' | 'workspace' | 'surface'>(() => {
+    if (typeof window === 'undefined') return 'app';
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const shell = params.get('shell');
+      return shell === 'workspace' || shell === 'surface' ? shell : 'app';
+    } catch {
+      return 'app';
+    }
+  });
   const isAgentWorkspace = pathname === '/dashboard/agent';
 
   useEffect(() => {
     try {
       const params = new URLSearchParams(window.location.search);
-      const embeddedFlag = params.get('embedded') === '1';
-      setIsEmbedded(embeddedFlag || window.self !== window.top);
+      const shell = params.get('shell');
+      if (shell === 'workspace' || shell === 'surface') {
+        setShellMode(shell);
+      } else {
+        setShellMode('app');
+      }
     } catch {
-      setIsEmbedded(true);
+      setShellMode('app');
     }
   }, []);
 
-  if (isEmbedded || isAgentWorkspace) {
+  // When the agent workspace hosts the app in a side pane, we render the app chrome differently.
+  // `shell=surface` renders only the page content; `shell=workspace` renders the app sidebar but
+  // intentionally hides the app logo/footer so the agent pane can own the primary branding.
+  if (shellMode !== 'app' || isAgentWorkspace) {
+    const showSidebar = shellMode === 'workspace';
     return (
       <div className="h-screen w-screen overflow-hidden bg-slate-50 text-slate-900 font-sans">
-        <main className="h-full w-full overflow-hidden bg-slate-50">{children}</main>
+        <div className="flex h-full w-full overflow-hidden bg-slate-50">
+          {showSidebar && (
+            <Sidebar hideWorkspaceEntry hideBrand hideFooter />
+          )}
+          <main className="h-full min-w-0 flex-1 overflow-hidden bg-slate-50">{children}</main>
+        </div>
       </div>
     );
   }
