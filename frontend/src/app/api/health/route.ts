@@ -84,6 +84,19 @@ export async function GET() {
       app_url: appUrl ? `✅ ${appUrl}` : '❌ MISSING — set NEXT_PUBLIC_APP_URL',
       apify_key: process.env.APIFY_API_KEY ? '✅ set' : '⚠️  not set (required for non-CSV campaigns)',
     },
+    cron: {
+      cron_secret: process.env.CRON_SECRET ? '✅ set' : '❌ MISSING — set CRON_SECRET (required to process queues)',
+    },
+    inbound_meta: {
+      meta_app_id: process.env.NEXT_PUBLIC_META_APP_ID ? `✅ ${process.env.NEXT_PUBLIC_META_APP_ID}` : '⚠️  not set',
+      meta_app_secret: process.env.META_APP_SECRET ? '✅ set' : '⚠️  not set',
+      meta_redirect_uri: process.env.NEXT_PUBLIC_META_REDIRECT_URI
+        ? `✅ ${process.env.NEXT_PUBLIC_META_REDIRECT_URI}`
+        : '⚠️  not set (recommended)',
+      meta_webhook_verify_token: process.env.META_WEBHOOK_VERIFY_TOKEN
+        ? '✅ set'
+        : '⚠️  not set (required for Meta webhook verification)',
+    },
     ai_models: {
       openai: process.env.OPENAI_API_KEY ? '✅ set' : '❌ MISSING',
       azure_kimi_endpoint: process.env.AZURE_KIMI_ENDPOINT ? '✅ set' : '⚠️  not set',
