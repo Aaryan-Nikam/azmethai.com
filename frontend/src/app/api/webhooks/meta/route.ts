@@ -173,5 +173,23 @@ export async function POST(request: NextRequest) {
     });
   }
 
+  // ── 4. Asynchronous Background Processing (Free Tier Cron Alternative) ──
+  // Instead of relying on a paid Render Cron Job, we trigger the queue processor
+  // asynchronously right after receiving the webhook. Next.js Node server will execute this.
+  setTimeout(async () => {
+    try {
+      const supabase = createServerClient();
+      const { data } = await supabase.rpc('claim_webhook_jobs', { batch_size: 5 });
+      if (data && data.length > 0) {
+        const { processWebhookJob } = await import('@/core/agent/engine');
+        for (const job of data) {
+          await processWebhookJob(supabase, job);
+        }
+      }
+    } catch (e) {
+      console.error("Inline async processor error:", e);
+    }
+  }, 100);
+
   return NextResponse.json({ received: true, deploy: DEPLOY_VERSION }, { status: 200 });
 }
